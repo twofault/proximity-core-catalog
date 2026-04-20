@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-20T08:01:08.024591Z",
+  "generated_at": "2026-04-20T08:01:18.422584Z",
   "min_app_version": "0.1.0",
   "bridges": [
     {
@@ -198,6 +198,61 @@
             "structure": {
               "ancestor_contains": ".minecraft",
               "ancestor_depth": 6
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "mono-tracker",
+      "name": "Unity Mono Tracker",
+      "description": "Tracks camera position in Unity games using Mono runtime",
+      "author": "twofault",
+      "tags": [
+        "unity",
+        "mono",
+        "generic",
+        "engine",
+        "dotnet"
+      ],
+      "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/mono-tracker/icon.png",
+      "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/mono-tracker/README.md",
+      "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/mono-tracker",
+      "latest_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "released_at": "2026-04-20T08:01:15Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/mono-tracker/v1.0.0/mono-tracker-1.0.0.zip",
+          "sha256": "7a5596279c6755c7e1b20d7465ca80264235f7dd9efcabf3e5051fd0f53994ec",
+          "size_bytes": 11929,
+          "changelog": "Initial public release.",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "unity-mono"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "none_of": [
+                {
+                  "contains": "crashhandler"
+                }
+              ]
+            },
+            "structure": {
+              "sibling_pattern": "*_Data"
+            },
+            "files": {
+              "require_all": [
+                "{sibling}/Managed/Assembly-CSharp.dll"
+              ],
+              "forbid": [
+                "GameAssembly.dll"
+              ]
             }
           }
         }
