@@ -1,8 +1,56 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-20T20:04:01.120062Z",
+  "generated_at": "2026-04-20T20:04:06.797672Z",
   "min_app_version": "0.1.0",
   "bridges": [
+    {
+      "id": "bedrock-tracker-tf",
+      "name": "Minecraft Bedrock Edition",
+      "description": "Extracts player position from Minecraft Bedrock Edition by scanning static camera data in the executable's data section",
+      "author": "twofault",
+      "tags": [
+        "minecraft",
+        "bedrock-edition",
+        "bedrock",
+        "mojang",
+        "windows",
+        "experimental"
+      ],
+      "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/bedrock-tracker-tf/icon.png",
+      "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/bedrock-tracker-tf/README.md",
+      "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/bedrock-tracker-tf",
+      "latest_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "released_at": "2026-04-20T20:04:05Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/bedrock-tracker-tf/v1.0.0/bedrock-tracker-tf-1.0.0.zip",
+          "sha256": "7867cd8e896945ecc75f7de41907ee93881498fb611c8605ba79c9731dfa4c98",
+          "size_bytes": 7886,
+          "changelog": "Initial public release.",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "custom"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "Minecraft.Windows.exe"
+                },
+                {
+                  "starts_with": "Minecraft.Windows"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
     {
       "id": "minecraft-tracker-tf",
       "name": "Minecraft Java Edition",
