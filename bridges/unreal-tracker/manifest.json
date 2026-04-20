@@ -1,0 +1,32 @@
+{
+  "id": "unreal-tracker",
+  "name": "Unreal Engine (Generic)",
+  "description": "Extracts player position from Unreal Engine 4/5 games using runtime introspection",
+  "version": "1.0.0",
+  "author": "twofault",
+  "entry": "main.lua",
+  "frida_script": "ue_engine.lua",
+  "game_engines": ["unreal"],
+  "compatibility": {
+    "platforms": ["windows"],
+    "executable": {
+      "none_of": [
+        { "contains": "CrashReportClient" },
+        { "contains": "EpicWebHelper" },
+        { "contains": "EOSOverlay" },
+        { "contains": "EasyAntiCheat" },
+        { "contains": "BEService" },
+        { "contains": "UE4PrereqSetup" },
+        { "contains": "UnrealCEFSubProcess" }
+      ]
+    },
+    "structure": {
+      "ancestor_file_exists": ["Engine"],
+      "ancestor_depth": 5
+    }
+  },
+  "uses_blockable_apis": true,
+  "warn_on_unlisted_targets": true,
+  "bridge_scope": "generic",
+  "tags": ["unreal-engine", "ue4", "ue5", "epic", "generic", "engine"]
+}

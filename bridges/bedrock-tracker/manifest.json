@@ -1,0 +1,23 @@
+{
+  "id": "bedrock-tracker",
+  "name": "Minecraft Bedrock Edition",
+  "description": "Extracts player position from Minecraft Bedrock Edition by scanning static camera data in the executable's data section",
+  "version": "1.0.0",
+  "author": "twofault",
+  "entry": "main.lua",
+  "frida_script": "bedrock_tracker.lua",
+  "game_engines": ["custom"],
+  "compatibility": {
+    "platforms": ["windows"],
+    "executable": {
+      "any_of": [
+        { "exact": "Minecraft.Windows.exe" },
+        { "starts_with": "Minecraft.Windows" }
+      ]
+    }
+  },
+  "uses_blockable_apis": true,
+  "warn_on_unlisted_targets": false,
+  "bridge_scope": "game_specific",
+  "tags": ["minecraft", "bedrock-edition", "bedrock", "mojang", "windows"]
+}

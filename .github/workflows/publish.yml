@@ -1,0 +1,80 @@
+name: Publish bridge
+
+on:
+  push:
+    tags:
+      - '*/v*.*.*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Parse tag
+        id: parse
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          BRIDGE_ID="${TAG%/v*}"
+          VERSION="${TAG#*/v}"
+          echo "bridge_id=$BRIDGE_ID" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Tag: $TAG => bridge_id=$BRIDGE_ID, version=$VERSION"
+
+      - name: Verify bridge exists
+        run: |
+          BRIDGE_DIR="bridges/${{ steps.parse.outputs.bridge_id }}"
+          if [ ! -d "$BRIDGE_DIR" ]; then
+            echo "ERROR: bridge directory $BRIDGE_DIR does not exist in main" >&2
+            exit 1
+          fi
+          if [ ! -f "$BRIDGE_DIR/manifest.json" ]; then
+            echo "ERROR: $BRIDGE_DIR/manifest.json missing" >&2
+            exit 1
+          fi
+
+      - name: Build zip
+        run: |
+          chmod +x .github/scripts/build_zip.sh
+          .github/scripts/build_zip.sh "${{ steps.parse.outputs.bridge_id }}" "${{ steps.parse.outputs.version }}"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRIDGE_ID="${{ steps.parse.outputs.bridge_id }}"
+          VERSION="${{ steps.parse.outputs.version }}"
+          ZIP="dist/${BRIDGE_ID}-${VERSION}.zip"
+          SHA=$(cat "${ZIP}.sha256")
+          CHANGELOG=$(awk -v V="${VERSION}" 'BEGIN{flag=0} /^## v?/{if (flag) exit; if ($2 == "v" V || $2 == V) flag=1; next} flag' "bridges/${BRIDGE_ID}/CHANGELOG.md" || echo "No changelog entry found.")
+          gh release create "${GITHUB_REF_NAME}" "$ZIP" \
+            --title "${BRIDGE_ID} v${VERSION}" \
+            --notes "$(printf '%s\n\nsha256: %s\n' "$CHANGELOG" "$SHA")"
+
+      - name: Regenerate index
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 .github/scripts/regenerate_index.py
+
+      - name: Commit + push index
+        run: |
+          git config user.name "twofault-bot"
+          git config user.email "bot@twofault.dev"
+          git add index.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(index): regenerate after ${GITHUB_REF_NAME}"
+            git push origin main
+          else
+            echo "index.json already up to date"
+          fi
