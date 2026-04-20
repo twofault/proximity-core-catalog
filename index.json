@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-20T20:04:12.216721Z",
+  "generated_at": "2026-04-20T20:04:18.549079Z",
   "min_app_version": "0.1.0",
   "bridges": [
     {
@@ -89,6 +89,55 @@
                 {
                   "exact": "cs2.exe"
                 }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "il2cpp-tracker-tf",
+      "name": "Unity IL2CPP Tracker",
+      "description": "Tracks camera position in Unity games using IL2CPP runtime",
+      "author": "twofault",
+      "tags": [
+        "unity",
+        "il2cpp",
+        "generic",
+        "engine",
+        "experimental"
+      ],
+      "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/il2cpp-tracker-tf/icon.png",
+      "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/il2cpp-tracker-tf/README.md",
+      "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/il2cpp-tracker-tf",
+      "latest_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "released_at": "2026-04-20T20:04:16Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/il2cpp-tracker-tf/v1.0.0/il2cpp-tracker-tf-1.0.0.zip",
+          "sha256": "231d458c2666f58cdc5fbfbc1ac42916222b89b51db0bab6bb7e9b5fac982b2c",
+          "size_bytes": 11710,
+          "changelog": "Initial public release.",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "unity-il2cpp"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "none_of": [
+                {
+                  "contains": "crashhandler"
+                }
+              ]
+            },
+            "files": {
+              "require_any": [
+                "GameAssembly.dll"
               ]
             }
           }
