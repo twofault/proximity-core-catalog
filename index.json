@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-20T20:04:06.797672Z",
+  "generated_at": "2026-04-20T20:04:12.216721Z",
   "min_app_version": "0.1.0",
   "bridges": [
     {
@@ -44,6 +44,50 @@
                 },
                 {
                   "starts_with": "Minecraft.Windows"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "cs2-vision-tracker-tf",
+      "name": "Counter-Strike 2 (Vision)",
+      "description": "Extracts player position from CS2 minimap using computer vision - no memory reading required",
+      "author": "twofault",
+      "tags": [
+        "counter-strike",
+        "cs2",
+        "valve",
+        "vision",
+        "computer-vision",
+        "source2",
+        "experimental"
+      ],
+      "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/cs2-vision-tracker-tf/icon.png",
+      "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/cs2-vision-tracker-tf/README.md",
+      "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/cs2-vision-tracker-tf",
+      "latest_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "released_at": "2026-04-20T20:04:10Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/cs2-vision-tracker-tf/v1.0.0/cs2-vision-tracker-tf-1.0.0.zip",
+          "sha256": "e5592ac75e25e03ae3d48d61ea9f065a8fc457acbaed4dd465ad48773e26857a",
+          "size_bytes": 75154,
+          "changelog": "Initial public release.",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "cs2.exe"
                 }
               ]
             }
