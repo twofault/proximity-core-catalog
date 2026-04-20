@@ -1,25 +1,39 @@
 {
-  "id": "il2cpp-tracker",
+  "id": "il2cpp-tracker-tf",
   "name": "Unity IL2CPP Tracker",
   "description": "Tracks camera position in Unity games using IL2CPP runtime",
   "version": "1.0.0",
   "author": "twofault",
   "entry": "main.lua",
   "frida_script": "unity_il2cpp_tracker.lua",
-  "game_engines": ["unity-il2cpp"],
+  "game_engines": [
+    "unity-il2cpp"
+  ],
   "compatibility": {
-    "platforms": ["windows"],
+    "platforms": [
+      "windows"
+    ],
     "executable": {
       "none_of": [
-        { "contains": "crashhandler" }
+        {
+          "contains": "crashhandler"
+        }
       ]
     },
     "files": {
-      "require_any": ["GameAssembly.dll"]
+      "require_any": [
+        "GameAssembly.dll"
+      ]
     }
   },
   "uses_blockable_apis": true,
   "warn_on_unlisted_targets": true,
   "bridge_scope": "generic",
-  "tags": ["unity", "il2cpp", "generic", "engine"]
+  "tags": [
+    "unity",
+    "il2cpp",
+    "generic",
+    "engine",
+    "experimental"
+  ]
 }

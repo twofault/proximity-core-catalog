@@ -1,23 +1,38 @@
 {
-  "id": "dst-tracker",
+  "id": "dst-tracker-tf",
   "name": "Don't Starve Together",
   "description": "Extracts player and camera position from Don't Starve Together",
   "version": "1.0.0",
   "author": "twofault",
   "entry": "main.lua",
   "frida_script": "dst_tracker.lua",
-  "game_engines": ["lua_custom"],
+  "game_engines": [
+    "lua_custom"
+  ],
   "compatibility": {
-    "platforms": ["windows"],
+    "platforms": [
+      "windows"
+    ],
     "executable": {
       "any_of": [
-        { "exact": "dontstarve_steam.exe" },
-        { "exact": "dontstarve_steam_x64.exe" }
+        {
+          "exact": "dontstarve_steam.exe"
+        },
+        {
+          "exact": "dontstarve_steam_x64.exe"
+        }
       ]
     }
   },
   "uses_blockable_apis": true,
   "warn_on_unlisted_targets": false,
   "bridge_scope": "game_specific",
-  "tags": ["dont-starve-together", "dst", "klei", "survival", "lua"]
+  "tags": [
+    "dont-starve-together",
+    "dst",
+    "klei",
+    "survival",
+    "lua",
+    "experimental"
+  ]
 }

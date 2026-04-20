@@ -1,26 +1,38 @@
 {
-  "id": "minecraft-tracker",
+  "id": "minecraft-tracker-tf",
   "name": "Minecraft Java Edition",
   "description": "Extracts player position from Minecraft Java Edition using Frida with automatic deobfuscation",
   "version": "1.0.0",
   "author": "twofault",
   "entry": "main.lua",
   "frida_script": "minecraft_tracker.lua",
-  "game_engines": ["java"],
+  "game_engines": [
+    "java"
+  ],
   "compatibility": {
-    "platforms": ["windows"],
+    "platforms": [
+      "windows"
+    ],
     "executable": {
       "any_of": [
-        { "exact": "javaw.exe" },
-        { "exact": "java.exe" }
+        {
+          "exact": "javaw.exe"
+        },
+        {
+          "exact": "java.exe"
+        }
       ]
     },
     "window_title": {
       "any_of": [
-        { "starts_with": "Minecraft" }
+        {
+          "starts_with": "Minecraft"
+        }
       ],
       "none_of": [
-        { "contains": "Launcher" }
+        {
+          "contains": "Launcher"
+        }
       ]
     },
     "structure": {
@@ -31,5 +43,11 @@
   "uses_blockable_apis": true,
   "warn_on_unlisted_targets": false,
   "bridge_scope": "game_specific",
-  "tags": ["minecraft", "java-edition", "mojang", "java"]
+  "tags": [
+    "minecraft",
+    "java-edition",
+    "mojang",
+    "java",
+    "experimental"
+  ]
 }
