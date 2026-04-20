@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-20T08:01:18.422584Z",
+  "generated_at": "2026-04-20T08:01:25.395679Z",
   "min_app_version": "0.1.0",
   "bridges": [
     {
@@ -252,6 +252,49 @@
               ],
               "forbid": [
                 "GameAssembly.dll"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "terraria-tracker",
+      "name": "Terraria",
+      "description": "Tracks player position in Terraria via memory scanning (read-only, no code injection)",
+      "author": "twofault",
+      "tags": [
+        "terraria",
+        "re-logic",
+        "dotnet",
+        "2d"
+      ],
+      "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/terraria-tracker/icon.png",
+      "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/terraria-tracker/README.md",
+      "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/terraria-tracker",
+      "latest_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "released_at": "2026-04-20T08:01:22Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/terraria-tracker/v1.0.0/terraria-tracker-1.0.0.zip",
+          "sha256": "53ee83f28707325b05146b7c51c9e3e5458efd3ad866547d58f288858a97d79f",
+          "size_bytes": 11800,
+          "changelog": "Initial public release.",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "dotnet_framework"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "Terraria.exe"
+                }
               ]
             }
           }
