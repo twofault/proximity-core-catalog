@@ -1,8 +1,55 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-20T08:00:13.917260Z",
+  "generated_at": "2026-04-20T08:00:53.423929Z",
   "min_app_version": "0.1.0",
   "bridges": [
+    {
+      "id": "bedrock-tracker",
+      "name": "Minecraft Bedrock Edition",
+      "description": "Extracts player position from Minecraft Bedrock Edition by scanning static camera data in the executable's data section",
+      "author": "twofault",
+      "tags": [
+        "minecraft",
+        "bedrock-edition",
+        "bedrock",
+        "mojang",
+        "windows"
+      ],
+      "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/bedrock-tracker/icon.png",
+      "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/bedrock-tracker/README.md",
+      "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/bedrock-tracker",
+      "latest_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "released_at": "2026-04-20T08:00:51Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/bedrock-tracker/v1.0.0/bedrock-tracker-1.0.0.zip",
+          "sha256": "4fb01695f718d5f3ac324a8716ee0536e20e095c76e9a188c6d67c9ad4c2b58d",
+          "size_bytes": 7828,
+          "changelog": "Initial public release.",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "custom"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "Minecraft.Windows.exe"
+                },
+                {
+                  "starts_with": "Minecraft.Windows"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
     {
       "id": "minecraft-tracker",
       "name": "Minecraft Java Edition",
