@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-20T08:01:00.245324Z",
+  "generated_at": "2026-04-20T08:01:08.024591Z",
   "min_app_version": "0.1.0",
   "bridges": [
     {
@@ -87,6 +87,54 @@
                 {
                   "exact": "cs2.exe"
                 }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "il2cpp-tracker",
+      "name": "Unity IL2CPP Tracker",
+      "description": "Tracks camera position in Unity games using IL2CPP runtime",
+      "author": "twofault",
+      "tags": [
+        "unity",
+        "il2cpp",
+        "generic",
+        "engine"
+      ],
+      "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/il2cpp-tracker/icon.png",
+      "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/il2cpp-tracker/README.md",
+      "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/il2cpp-tracker",
+      "latest_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "released_at": "2026-04-20T08:01:05Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/il2cpp-tracker/v1.0.0/il2cpp-tracker-1.0.0.zip",
+          "sha256": "09b1efa2272c277bb8e3337608e6986f004dab659e5ce8070d7751c5363fb32b",
+          "size_bytes": 11651,
+          "changelog": "Initial public release.",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "unity-il2cpp"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "none_of": [
+                {
+                  "contains": "crashhandler"
+                }
+              ]
+            },
+            "files": {
+              "require_any": [
+                "GameAssembly.dll"
               ]
             }
           }
