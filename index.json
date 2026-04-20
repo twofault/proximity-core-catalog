@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-20T08:01:25.395679Z",
+  "generated_at": "2026-04-20T08:01:32.458840Z",
   "min_app_version": "0.1.0",
   "bridges": [
     {
@@ -86,6 +86,53 @@
               "any_of": [
                 {
                   "exact": "cs2.exe"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "dst-tracker",
+      "name": "Don't Starve Together",
+      "description": "Extracts player and camera position from Don't Starve Together",
+      "author": "twofault",
+      "tags": [
+        "dont-starve-together",
+        "dst",
+        "klei",
+        "survival",
+        "lua"
+      ],
+      "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/dst-tracker/icon.png",
+      "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/dst-tracker/README.md",
+      "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/dst-tracker",
+      "latest_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "released_at": "2026-04-20T08:01:29Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/dst-tracker/v1.0.0/dst-tracker-1.0.0.zip",
+          "sha256": "b04b3a6883336121e46a827451971b8a8b4e41de8b2bc67d000907c9187fa797",
+          "size_bytes": 16551,
+          "changelog": "Initial public release.",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "lua_custom"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "dontstarve_steam.exe"
+                },
+                {
+                  "exact": "dontstarve_steam_x64.exe"
                 }
               ]
             }
