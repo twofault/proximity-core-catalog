@@ -1,8 +1,100 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-22T08:03:47.106501Z",
+  "generated_at": "2026-04-22T08:03:56.457388Z",
   "min_app_version": "0.1.0",
   "bridges": [
+    {
+      "id": "bedrock-tracker-tf",
+      "name": "Minecraft Bedrock Edition",
+      "description": "Extracts player position from Minecraft Bedrock Edition by scanning static camera data in the executable's data section",
+      "author": "twofault",
+      "tags": [
+        "minecraft",
+        "bedrock-edition",
+        "bedrock",
+        "mojang",
+        "windows",
+        "experimental"
+      ],
+      "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/bedrock-tracker-tf/icon.png",
+      "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/bedrock-tracker-tf/README.md",
+      "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/bedrock-tracker-tf",
+      "latest_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "released_at": "2026-04-22T08:03:47Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/bedrock-tracker-tf/v1.0.0/bedrock-tracker-tf-1.0.0.zip",
+          "sha256": "14631bb5bdfa77a506d209a3fe3d92a711db735cd67191617149037280714118",
+          "size_bytes": 7933,
+          "changelog": "Initial public release.\n- Uses Gamelink Lua API (formerly Frida).",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "custom"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "Minecraft.Windows.exe"
+                },
+                {
+                  "starts_with": "Minecraft.Windows"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "cs2-vision-tracker-tf",
+      "name": "Counter-Strike 2 (Vision)",
+      "description": "Extracts player position from CS2 minimap using computer vision - no memory reading required",
+      "author": "twofault",
+      "tags": [
+        "counter-strike",
+        "cs2",
+        "valve",
+        "vision",
+        "computer-vision",
+        "source2",
+        "experimental"
+      ],
+      "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/cs2-vision-tracker-tf/icon.png",
+      "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/cs2-vision-tracker-tf/README.md",
+      "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/cs2-vision-tracker-tf",
+      "latest_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "released_at": "2026-04-22T08:03:54Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/cs2-vision-tracker-tf/v1.0.0/cs2-vision-tracker-tf-1.0.0.zip",
+          "sha256": "841ec44810b500bfff8814e839c5047ba97999118c8894b33371aa5f32db92e9",
+          "size_bytes": 75196,
+          "changelog": "Initial public release.\n- Uses Gamelink Lua API (formerly Frida).",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "cs2.exe"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
     {
       "id": "minecraft-tracker-tf",
       "name": "Minecraft Java Edition",
