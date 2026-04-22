@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-22T20:34:37.482688Z",
+  "generated_at": "2026-04-22T20:36:23.529968Z",
   "min_app_version": "0.1.0",
   "bridges": [
     {
@@ -577,8 +577,44 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/mono-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/mono-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/mono-tracker-tf",
-      "latest_version": "1.0.1",
+      "latest_version": "1.0.2",
       "versions": [
+        {
+          "version": "1.0.2",
+          "released_at": "2026-04-22T20:36:14Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/mono-tracker-tf/v1.0.2/mono-tracker-tf-1.0.2.zip",
+          "sha256": "498759dc895896536b9f14e349745425b7c56c1b6c53bc45d75dc2cdf568c120",
+          "size_bytes": 10740,
+          "changelog": "- Bump engine tick to 60Hz + clean up bridge scripts",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "unity-mono"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "none_of": [
+                {
+                  "contains": "crashhandler"
+                }
+              ]
+            },
+            "structure": {
+              "sibling_pattern": "*_Data"
+            },
+            "files": {
+              "require_all": [
+                "{sibling}/Managed/Assembly-CSharp.dll"
+              ],
+              "forbid": [
+                "GameAssembly.dll"
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.1",
           "released_at": "2026-04-22T18:44:47Z",
@@ -764,8 +800,57 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/unreal-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/unreal-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/unreal-tracker-tf",
-      "latest_version": "1.0.1",
+      "latest_version": "1.0.2",
       "versions": [
+        {
+          "version": "1.0.2",
+          "released_at": "2026-04-22T20:34:40Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/unreal-tracker-tf/v1.0.2/unreal-tracker-tf-1.0.2.zip",
+          "sha256": "a0ec7a54d6bed8bb8db3c2cfdeec42c3f2126907ffcabbd845c7a3f5f305528e",
+          "size_bytes": 23631,
+          "changelog": "- Bump engine tick to 60Hz + clean up bridge scripts",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "unreal"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "none_of": [
+                {
+                  "contains": "CrashReportClient"
+                },
+                {
+                  "contains": "EpicWebHelper"
+                },
+                {
+                  "contains": "EOSOverlay"
+                },
+                {
+                  "contains": "EasyAntiCheat"
+                },
+                {
+                  "contains": "BEService"
+                },
+                {
+                  "contains": "UE4PrereqSetup"
+                },
+                {
+                  "contains": "UnrealCEFSubProcess"
+                }
+              ]
+            },
+            "structure": {
+              "ancestor_file_exists": [
+                "Engine"
+              ],
+              "ancestor_depth": 5
+            }
+          }
+        },
         {
           "version": "1.0.1",
           "released_at": "2026-04-22T18:45:10Z",
