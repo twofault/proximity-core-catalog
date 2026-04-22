@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-22T18:44:35.655235Z",
+  "generated_at": "2026-04-22T18:44:45.776360Z",
   "min_app_version": "0.1.0",
   "bridges": [
     {
@@ -96,8 +96,31 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/cs2-vision-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/cs2-vision-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/cs2-vision-tracker-tf",
-      "latest_version": "1.0.0",
+      "latest_version": "1.0.1",
       "versions": [
+        {
+          "version": "1.0.1",
+          "released_at": "2026-04-22T18:44:36Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/cs2-vision-tracker-tf/v1.0.1/cs2-vision-tracker-tf-1.0.1.zip",
+          "sha256": "d6a31638c414f0e6976d522a41da4b760bbdb4e0ae0bc3cd230f8e46d89dfd53",
+          "size_bytes": 75261,
+          "changelog": "- Rebrand: all user-facing \"Frida\" references now say \"GameLink\" to match the Lua API.",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "cs2.exe"
+                }
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.0",
           "released_at": "2026-04-22T08:03:54Z",
@@ -186,8 +209,38 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/il2cpp-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/il2cpp-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/il2cpp-tracker-tf",
-      "latest_version": "1.0.0",
+      "latest_version": "1.0.1",
       "versions": [
+        {
+          "version": "1.0.1",
+          "released_at": "2026-04-22T18:44:41Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/il2cpp-tracker-tf/v1.0.1/il2cpp-tracker-tf-1.0.1.zip",
+          "sha256": "25f6a12489462128a3dcf2aacce942032b857d4f10f34585a6de66f7ea30e8f1",
+          "size_bytes": 11836,
+          "changelog": "- Rebrand: all user-facing \"Frida\" references now say \"GameLink\" to match the Lua API.",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "unity-il2cpp"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "none_of": [
+                {
+                  "contains": "crashhandler"
+                }
+              ]
+            },
+            "files": {
+              "require_any": [
+                "GameAssembly.dll"
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.0",
           "released_at": "2026-04-22T08:03:57Z",
