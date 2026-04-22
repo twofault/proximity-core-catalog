@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-22T18:44:45.776360Z",
+  "generated_at": "2026-04-22T18:44:59.871111Z",
   "min_app_version": "0.1.0",
   "bridges": [
     {
@@ -396,8 +396,44 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/mono-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/mono-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/mono-tracker-tf",
-      "latest_version": "1.0.0",
+      "latest_version": "1.0.1",
       "versions": [
+        {
+          "version": "1.0.1",
+          "released_at": "2026-04-22T18:44:47Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/mono-tracker-tf/v1.0.1/mono-tracker-tf-1.0.1.zip",
+          "sha256": "431525c389502199ef4df48ca4e444dd53ea80ceaa82745270a9c6ccf8d6d4be",
+          "size_bytes": 12109,
+          "changelog": "- Rebrand: all user-facing \"Frida\" references now say \"GameLink\" to match the Lua API.",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "unity-mono"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "none_of": [
+                {
+                  "contains": "crashhandler"
+                }
+              ]
+            },
+            "structure": {
+              "sibling_pattern": "*_Data"
+            },
+            "files": {
+              "require_all": [
+                "{sibling}/Managed/Assembly-CSharp.dll"
+              ],
+              "forbid": [
+                "GameAssembly.dll"
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.0",
           "released_at": "2026-04-22T08:04:04Z",
@@ -451,8 +487,33 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/terraria-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/terraria-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/terraria-tracker-tf",
-      "latest_version": "1.0.0",
+      "latest_version": "1.0.1",
       "versions": [
+        {
+          "version": "1.0.1",
+          "released_at": "2026-04-22T18:44:55Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/terraria-tracker-tf/v1.0.1/terraria-tracker-tf-1.0.1.zip",
+          "sha256": "3c33ad6ff3345edd8c1019d23b610997588514ca1d1cc97ab02105598c07dd81",
+          "size_bytes": 11970,
+          "changelog": "- Rebrand: all user-facing \"Frida\" references now say \"GameLink\" to match the Lua API.",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "dotnet_framework"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "Terraria.exe"
+                }
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.0",
           "released_at": "2026-04-22T08:04:07Z",
