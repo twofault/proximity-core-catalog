@@ -2,7 +2,7 @@
   "id": "dst-tracker-tf",
   "name": "Don't Starve Together",
   "description": "Extracts player and camera position from Don't Starve Together",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "author": "twofault",
   "entry": "main.lua",
   "frida_script": "dst_tracker.lua",
