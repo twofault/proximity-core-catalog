@@ -1,10 +1,143 @@
 # Maintainer Notes — proximity-core-catalog
 
-Operational quirks encountered while maintaining this repo. Read before doing
+Operational quirks + release workflows for this repo. Read before doing
 any bulk publishing operation (tagging, renaming bridges, mass-deleting
 releases) to avoid wasted time and misleading CI output.
 
 Keep this file updated as new quirks are discovered.
+
+---
+
+## Release workflows
+
+Every release is driven by a git tag of the form `<bridge-id>/v<major>.<minor>.<patch>`.
+Pushing the tag triggers `.github/workflows/publish.yml`, which:
+
+1. Zips `bridges/<bridge-id>/` deterministically (see `.github/scripts/build_zip.sh`)
+2. Creates a GitHub Release with the zip attached and the CHANGELOG entry as notes
+3. Regenerates `index.json` from the full release list and pushes it to `main`
+
+All operations below ASSUME:
+- You are in the catalog repo working directory (clone of `twofault/proximity-core-catalog`)
+- `gh` CLI is authenticated as a user with push access to the `twofault` org
+  (or an account collaborator — see §1 below for the multi-account gotcha)
+- Python 3 available on PATH (or the absolute path to python.exe works)
+
+### Easy path — use `scripts/release.py`
+
+This script handles the auth workarounds, tag-push deduplication, and CI
+polling automatically. Pick a subcommand:
+
+**Release one bridge at a new version** (bumps manifest + changelog + tags + polls CI):
+
+```bash
+python3 scripts/release.py single il2cpp-tracker-tf 1.0.2 \
+    --bump-message "Fix crash on Unity 2023.x startup"
+```
+
+**Release ALL bridges at the same version** (mass rebrand, API migration, etc.):
+
+```bash
+python3 scripts/release.py all 1.1.0 \
+    --bump-message "Migrate to GameLink API"
+```
+
+**Re-fire CI for an already-tagged version** (useful if the concurrent-publish
+race dropped an index regen):
+
+```bash
+python3 scripts/release.py retag-only il2cpp-tracker-tf 1.0.2
+```
+
+The script auto-retries the auth pattern (token-in-URL push) and polls
+`gh api actions/runs` until workflows complete, then verifies `index.json`
+contains the expected versions.
+
+### Manual path — if you want to understand every step
+
+1. **Edit the bridge's source files** under `bridges/<bridge-id>/`.
+2. **Bump the version** in `bridges/<bridge-id>/manifest.json`.
+3. **Add a CHANGELOG entry**:
+    ```markdown
+    ## v1.0.2 (YYYY-MM-DD)
+
+    - What changed.
+    ```
+4. **Commit + push main**:
+    ```bash
+    git add -A
+    git commit -m "release(<bridge-id>): v1.0.2 — <summary>"
+    TOKEN=$(gh auth token -u twofault)
+    git push "https://twofault:${TOKEN}@github.com/twofault/proximity-core-catalog.git" HEAD:main
+    ```
+5. **Delete any pre-existing tag/release** (idempotent; prevents stale tag
+   pointing at an older commit):
+    ```bash
+    GH_TOKEN=$(gh auth token -u twofault) \
+        gh release delete "<bridge-id>/v1.0.2" --cleanup-tag --yes \
+        --repo twofault/proximity-core-catalog
+    ```
+6. **Tag the commit and push the tag individually** (see §2 for why "individually"):
+    ```bash
+    git tag "<bridge-id>/v1.0.2"
+    git push "https://twofault:${TOKEN}@github.com/twofault/proximity-core-catalog.git" \
+        "refs/tags/<bridge-id>/v1.0.2:refs/tags/<bridge-id>/v1.0.2"
+    ```
+7. **Watch CI**:
+    ```bash
+    GH_TOKEN=$(gh auth token -u twofault) \
+        gh run list --repo twofault/proximity-core-catalog --limit 5
+    ```
+8. **Verify the index**:
+    ```bash
+    curl -sL "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/index.json?t=$(date +%s)" \
+        | python3 -m json.tool | grep -A2 '"<bridge-id>"'
+    ```
+
+### AI agent task templates
+
+Copy-paste these into a sub-agent prompt for common operations:
+
+**Task: Release a single bridge at a new version**
+
+> Release `<bridge-id>` at v`<version>`. Source edits have already been
+> made to the bridge files.
+>
+> Run `python3 scripts/release.py single <bridge-id> <version> --bump-message "<msg>"`
+> from the catalog repo working directory. Wait for it to finish. If it
+> exits non-zero because the concurrent-publish race (MAINTAINER-NOTES.md §3)
+> dropped the index regen, re-run with `retag-only` for that one bridge.
+> Report the final `index.json` state for `<bridge-id>`.
+
+**Task: Release all bridges at the same version**
+
+> Release ALL bridges in the catalog at v`<version>`. Source edits have
+> already been made across all `bridges/*/` directories.
+>
+> Run `python3 scripts/release.py all <version> --bump-message "<msg>"`
+> from the catalog repo working directory. Each bridge's manifest will be
+> bumped, a CHANGELOG entry added, and a tag pushed with a 3-second delay
+> between pushes. The script polls CI for all tags.
+>
+> Expect 0-3 "failure" markers per MAINTAINER-NOTES.md §3 — the release
+> zips + entries all land correctly; only the `index.json` regen push
+> can lose the race. Re-poke any missing bridges with the `retag-only`
+> subcommand. Verify `index.json` shows `latest_version: "<version>"`
+> for every bridge at the end.
+
+**Task: Bulk add a bridge to the recommended tag**
+
+> Maintainers-only operation — `"recommended"` is reserved (CI rejects
+> PRs that add it). So it has to be a direct push to `main` + an index
+> regen.
+>
+> 1. Edit `bridges/<bridge-id>/manifest.json` and add `"recommended"` to
+>    the `tags` array.
+> 2. Commit + push main via the token-in-URL pattern (see §1 below).
+> 3. The index won't auto-regen for a tag-less push — either re-fire a
+>    non-version-bumping release with `retag-only`, OR wait for the next
+>    regular release cycle. For immediate effect, use `retag-only` on the
+>    bridge's existing version.
 
 ---
 
