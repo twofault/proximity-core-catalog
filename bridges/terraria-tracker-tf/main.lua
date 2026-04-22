@@ -30,7 +30,7 @@ function init()
     Bridge.setProgress("Attaching...", 40, 3)
     if cancelled() then return end
 
-    local attach = Frida.attach({ timeout_ms = ATTACH_TIMEOUT_MS })
+    local attach = Gamelink.attach({ timeout_ms = ATTACH_TIMEOUT_MS })
     if not attach.success then
         Bridge.shutdown("Attach failed: " .. tostring(attach.error))
         return
@@ -39,7 +39,7 @@ function init()
     if attach.pending then
         while true do
             if cancelled() then return end
-            local status = Frida.pollAttach()
+            local status = Gamelink.pollAttach()
             if status.done then
                 if not status.success then
                     Bridge.shutdown("Attach failed: " .. tostring(status.error))
@@ -55,12 +55,12 @@ function init()
     if cancelled() then return end
 
     Bridge.setProgress("Loading tracker...", 60, 1)
-    local load = Frida.load("terraria_tracker.lua", {
+    local load = Gamelink.load("terraria_tracker.lua", {
         runtime = "lua",
         capability = "invoke",
     })
     if not load.success then
-        Frida.detach()
+        Gamelink.detach()
         Bridge.shutdown("Load failed: " .. tostring(load.error))
         return
     end
@@ -69,11 +69,11 @@ function init()
     if cancelled() then return end
 
     Bridge.setProgress("Scanning game memory...", 80, 5)
-    local ok = Frida.send(handle, { type = "init" })
+    local ok = Gamelink.send(handle, { type = "init" })
     if not ok.success then
-        Frida.unload(handle)
+        Gamelink.unload(handle)
         handle = nil
-        Frida.detach()
+        Gamelink.detach()
         Bridge.shutdown("Send failed")
         return
     end
@@ -82,14 +82,14 @@ function init()
     while Core.getTimeMillis() - start < INIT_TIMEOUT_MS do
         if cancelled() then return end
 
-        local messages = Frida.poll(handle)
+        local messages = Gamelink.poll(handle)
         if messages then
             for _, msg in ipairs(messages) do
                 if msg.type == "data" and msg.payload then
                     local p = msg.payload
                     if p.type == "init-response" then
                         if p.success then
-                            Frida.send(handle, {
+                            Gamelink.send(handle, {
                                 type = "tick",
                                 now_ms = Core.getTimeMillis(),
                             })
@@ -121,12 +121,12 @@ end
 function update(dt)
     if not handle then return end
 
-    if Frida.is_error() then
-        Bridge.shutdown("Frida error: " .. (Frida.last_error() or "unknown"))
+    if Gamelink.is_error() then
+        Bridge.shutdown("Frida error: " .. (Gamelink.last_error() or "unknown"))
         return
     end
 
-    local messages = Frida.poll(handle)
+    local messages = Gamelink.poll(handle)
     local had_data = false
 
     if messages then
@@ -138,7 +138,7 @@ function update(dt)
                 local d = msg.payload
                 -- Fatal errors from agent are logged but do NOT disconnect.
                 -- Process exit is detected by the engine; Frida errors are
-                -- caught by Frida.is_error() above.
+                -- caught by Gamelink.is_error() above.
                 if d.type == "fatal-error" then
                     Core.error("Agent error: " .. tostring(d.error))
                 elseif d.posX ~= nil then
@@ -178,7 +178,7 @@ function update(dt)
     end
 
     if not tick_in_flight then
-        local ok = Frida.send(handle, {
+        local ok = Gamelink.send(handle, {
             type = "tick",
             now_ms = Core.getTimeMillis(),
         })
@@ -194,12 +194,12 @@ end
 function dispose()
     pcall(function()
         if handle then
-            Frida.send(handle, { type = "dispose" })
-            Frida.unload(handle)
+            Gamelink.send(handle, { type = "dispose" })
+            Gamelink.unload(handle)
             handle = nil
         end
-        if Frida.is_attached() then
-            Frida.detach()
+        if Gamelink.is_attached() then
+            Gamelink.detach()
         end
     end)
     tick_in_flight = false

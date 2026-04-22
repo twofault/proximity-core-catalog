@@ -24,7 +24,7 @@ local UNREAL_TO_METERS = 0.01  -- Unreal uses centimeters, convert to meters
 -- STATE
 -- ============================================================================
 
-local script_handle = nil  -- Handle from Frida.load for multi-script support
+local script_handle = nil  -- Handle from Gamelink.load for multi-script support
 local use_pull_ticks = false
 local tick_in_flight = false
 local tick_wait_seconds = 0
@@ -176,7 +176,7 @@ function init()
     Bridge.setProgress("Attaching to process...", 45, 3)
     Core.log("Attaching Frida to PID " .. tostring(pid) .. "...")
 
-    local attach_result = Frida.attach({ timeout_ms = ATTACH_TIMEOUT_MS })
+    local attach_result = Gamelink.attach({ timeout_ms = ATTACH_TIMEOUT_MS })
     if not attach_result.success then
         Core.error("Failed to attach Frida: " .. (attach_result.error or "unknown"))
         Bridge.shutdown("Frida attach failed")
@@ -186,7 +186,7 @@ function init()
     if attach_result.pending then
         while true do
             if check_cancel() then return end
-            local status = Frida.pollAttach()
+            local status = Gamelink.pollAttach()
             if status.done then
                 if not status.success then
                     Core.error("Frida attach failed: " .. (status.error or "unknown"))
@@ -205,7 +205,7 @@ function init()
 
     -- Step 4: Load ue_engine.lua (all-in-one discovery + tracking agent)
     Bridge.setProgress("Loading engine agent...", 60, 1)
-    local load_result = Frida.load("ue_engine.lua", {
+    local load_result = Gamelink.load("ue_engine.lua", {
         runtime = "lua",
         capability = "observe",
     })
@@ -214,13 +214,13 @@ function init()
 
         -- Fallback: try legacy JS tracker with Dumper-7 flow
         Core.log("Falling back to legacy JS tracker...")
-        load_result = Frida.load("unreal_tracker.js", {
+        load_result = Gamelink.load("unreal_tracker.js", {
             runtime = "default",
             capability = "observe",
         })
         if not load_result.success then
             Core.error("Failed to load any tracker: " .. tostring(load_result.error))
-            Frida.detach()
+            Gamelink.detach()
             Bridge.shutdown("Tracker load failed")
             return
         end
@@ -258,10 +258,10 @@ function init()
         Bridge.setProgressFooter("First connection (or after game update) requires scanning. Future connections will be almost instant.")
     end
 
-    local send_result = Frida.send(script_handle, init_message)
+    local send_result = Gamelink.send(script_handle, init_message)
     if not send_result.success then
         Core.error("Failed to send init: " .. tostring(send_result.error or "unknown"))
-        Frida.detach()
+        Gamelink.detach()
         Bridge.shutdown("Init send failed")
         return
     end
@@ -273,7 +273,7 @@ function init()
     while true do
         if check_cancel() then return end
 
-        local messages = Frida.poll(script_handle)
+        local messages = Gamelink.poll(script_handle)
         if messages then
             for _, msg in ipairs(messages) do
                 -- Forward agent log messages
@@ -327,23 +327,23 @@ function init()
 
     if not init_ok then
         Core.error("Engine initialization failed or timed out")
-        Frida.unload(script_handle)
+        Gamelink.unload(script_handle)
         script_handle = nil
-        Frida.detach()
+        Gamelink.detach()
         Bridge.shutdown("Could not find player data. If you are in a menu, try joining a game first and reconnecting.")
         return
     end
 
     -- Step 7: Prime the first tick
-    local tick_result = Frida.post(script_handle, {
+    local tick_result = Gamelink.post(script_handle, {
         type = "tick",
         now_ms = Core.getTimeMillis(),
     })
     if not tick_result.success then
         Core.error("Failed to prime tick: " .. (tick_result.error or "unknown"))
-        Frida.unload(script_handle)
+        Gamelink.unload(script_handle)
         script_handle = nil
-        Frida.detach()
+        Gamelink.detach()
         Bridge.shutdown("Failed to prime tracker")
         return
     end
@@ -364,15 +364,15 @@ function update(dt)
     if not script_handle then return end
 
     -- Check for Frida errors
-    if Frida.isError() then
-        local err = Frida.getError() or "Unknown error"
+    if Gamelink.isError() then
+        local err = Gamelink.getError() or "Unknown error"
         Core.error("Frida error detected: " .. err)
         Bridge.shutdown("Frida error: " .. err)
         return
     end
 
     -- Poll for messages from our script (filtered by handle at Rust level)
-    local messages = Frida.poll(script_handle)
+    local messages = Gamelink.poll(script_handle)
 
     local had_data = false
     if messages then
@@ -394,7 +394,7 @@ function update(dt)
 
                 -- Fatal errors from agent are logged but do NOT disconnect.
                 -- Process exit is detected by the engine; Frida errors are
-                -- caught by Frida.isError() above.
+                -- caught by Gamelink.isError() above.
                 if d.type == "fatal-error" then
                     Core.error("Agent error: " .. (d.error or "unknown"))
                 end
@@ -457,7 +457,7 @@ function update(dt)
         end
 
         if not tick_in_flight then
-            local tick_result = Frida.post(script_handle, {
+            local tick_result = Gamelink.post(script_handle, {
                 type = "tick",
                 now_ms = Core.getTimeMillis(),
             })
@@ -483,14 +483,14 @@ function dispose()
         -- Unload our script first
         if script_handle then
             pcall(function()
-                Frida.post(script_handle, { type = "shutdown" })
+                Gamelink.post(script_handle, { type = "shutdown" })
             end)
-            Frida.unload(script_handle)
+            Gamelink.unload(script_handle)
             script_handle = nil
         end
 
-        if Frida.is_attached() then
-            Frida.detach()
+        if Gamelink.is_attached() then
+            Gamelink.detach()
         end
     end)
 

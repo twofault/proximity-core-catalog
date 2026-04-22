@@ -77,7 +77,7 @@ function init()
 
     -- Attach Frida
     Bridge.setProgress("Attaching to process...", 40, 3)
-    local attach_result = Frida.attach({ timeout_ms = ATTACH_TIMEOUT_MS })
+    local attach_result = Gamelink.attach({ timeout_ms = ATTACH_TIMEOUT_MS })
     if not attach_result.success then
         Core.error("Frida attach failed: " .. (attach_result.error or "unknown"))
         Bridge.shutdown("Frida attach failed")
@@ -86,7 +86,7 @@ function init()
     if attach_result.pending then
         while true do
             if check_cancel() then return end
-            local status = Frida.pollAttach()
+            local status = Gamelink.pollAttach()
             if status.done then
                 if not status.success then
                     Core.error("Frida attach failed: " .. (status.error or "unknown"))
@@ -105,13 +105,13 @@ function init()
 
     -- Load agent
     Bridge.setProgress("Loading tracker agent...", 60, 1)
-    local load_result = Frida.load("bedrock_tracker.lua", {
+    local load_result = Gamelink.load("bedrock_tracker.lua", {
         runtime = "lua",
         capability = "observe",
     })
     if not load_result.success then
         Core.error("Failed to load tracker: " .. tostring(load_result.error))
-        Frida.detach()
+        Gamelink.detach()
         Bridge.shutdown("Tracker load failed")
         return
     end
@@ -134,12 +134,12 @@ function init()
         init_msg.data = cached_offset
     end
 
-    local send_result = Frida.send(script_handle, init_msg)
+    local send_result = Gamelink.send(script_handle, init_msg)
     if not send_result.success then
         Core.error("Failed to send init: " .. tostring(send_result.error))
-        Frida.unload(script_handle)
+        Gamelink.unload(script_handle)
         script_handle = nil
-        Frida.detach()
+        Gamelink.detach()
         Bridge.shutdown("Init send failed")
         return
     end
@@ -151,7 +151,7 @@ function init()
     while true do
         if check_cancel() then return end
 
-        local messages = Frida.poll(script_handle)
+        local messages = Gamelink.poll(script_handle)
         if messages then
             for _, msg in ipairs(messages) do
                 if msg.type == "log" and msg.payload then
@@ -193,23 +193,23 @@ function init()
 
     if not init_ok then
         Core.error("Initialization failed")
-        Frida.unload(script_handle)
+        Gamelink.unload(script_handle)
         script_handle = nil
-        Frida.detach()
+        Gamelink.detach()
         Bridge.shutdown("Could not find camera data. Tips: be in a world (not the main menu), look around and walk during connection, and stay away from coordinates 0,0. If the position seems wrong, use Edit Game > Clear Cache and reconnect.")
         return
     end
 
     -- Prime first tick
-    local tick_result = Frida.post(script_handle, {
+    local tick_result = Gamelink.post(script_handle, {
         type = "tick",
         now_ms = Core.getTimeMillis(),
     })
     if not tick_result.success then
         Core.error("Failed to prime tick")
-        Frida.unload(script_handle)
+        Gamelink.unload(script_handle)
         script_handle = nil
-        Frida.detach()
+        Gamelink.detach()
         Bridge.shutdown("Tracker communication failed")
         return
     end
@@ -225,14 +225,14 @@ end
 function update(dt)
     if not script_handle then return end
 
-    if Frida.isError() then
-        local err = Frida.getError() or "Unknown"
+    if Gamelink.isError() then
+        local err = Gamelink.getError() or "Unknown"
         Core.error("Frida error: " .. err)
         Bridge.shutdown("Frida error: " .. err)
         return
     end
 
-    local messages = Frida.poll(script_handle)
+    local messages = Gamelink.poll(script_handle)
     local had_data = false
 
     if messages then
@@ -315,7 +315,7 @@ function update(dt)
     end
 
     if not tick_in_flight then
-        local tick_result = Frida.post(script_handle, {
+        local tick_result = Gamelink.post(script_handle, {
             type = "tick",
             now_ms = Core.getTimeMillis(),
         })
@@ -335,13 +335,13 @@ function dispose()
     pcall(function()
         if script_handle then
             pcall(function()
-                Frida.post(script_handle, { type = "shutdown" })
+                Gamelink.post(script_handle, { type = "shutdown" })
             end)
-            Frida.unload(script_handle)
+            Gamelink.unload(script_handle)
             script_handle = nil
         end
-        if Frida.isAttached() then
-            Frida.detach()
+        if Gamelink.isAttached() then
+            Gamelink.detach()
         end
     end)
     tick_in_flight = false

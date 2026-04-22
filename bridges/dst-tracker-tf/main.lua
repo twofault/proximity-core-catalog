@@ -66,7 +66,7 @@ function init()
     -- Step 1: Attach Frida (non-blocking — yields while attaching)
     Bridge.setProgress("Attaching to process...", 40, 3)
 
-    local attach_result = Frida.attach({ timeout_ms = ATTACH_TIMEOUT_MS })
+    local attach_result = Gamelink.attach({ timeout_ms = ATTACH_TIMEOUT_MS })
     if not attach_result.success then
         Core.error("Failed to attach Frida: " .. (attach_result.error or "unknown"))
         Bridge.shutdown("Frida attach failed")
@@ -76,7 +76,7 @@ function init()
     if attach_result.pending then
         while true do
             if check_cancel() then return end
-            local status = Frida.pollAttach()
+            local status = Gamelink.pollAttach()
             if status.done then
                 if not status.success then
                     Core.error("Frida attach failed: " .. (status.error or "unknown"))
@@ -95,12 +95,12 @@ function init()
 
     -- Step 2: Load the Frida script
     Bridge.setProgress("Loading tracker script...", 55, 1)
-    local load_result = Frida.loadScript("dst_tracker.lua")
+    local load_result = Gamelink.loadScript("dst_tracker.lua")
     if load_result.success then
         script_mode = "lua"
     else
         Core.warn("Lua agent load failed, falling back to JS: " .. tostring(load_result.error))
-        load_result = Frida.loadScript("dst_tracker.js", {
+        load_result = Gamelink.loadScript("dst_tracker.js", {
             runtime = "default",
             capability = "observe"
         })
@@ -111,7 +111,7 @@ function init()
 
     if not load_result.success then
         Core.error("Failed to load Frida script: " .. (load_result.error or "unknown"))
-        Frida.detach()
+        Gamelink.detach()
         Bridge.shutdown("Script load failed")
         return
     end
@@ -127,10 +127,10 @@ function init()
         type = "init",
         now_ms = Core.getTimeMillis()
     }
-    local send_result = Frida.send(script_handle, init_message)
+    local send_result = Gamelink.send(script_handle, init_message)
     if not send_result.success then
         Core.error("Failed to send init message: " .. (send_result.error or "unknown"))
-        Frida.detach()
+        Gamelink.detach()
         Bridge.shutdown("Failed to send init message")
         return
     end
@@ -151,12 +151,12 @@ function init()
 
         pcall(function()
             if script_handle then
-                Frida.unloadScript(script_handle)
+                Gamelink.unloadScript(script_handle)
             end
         end)
         script_handle = nil
 
-        local js_load = Frida.loadScript("dst_tracker.js", {
+        local js_load = Gamelink.loadScript("dst_tracker.js", {
             runtime = "default",
             capability = "observe"
         })
@@ -168,7 +168,7 @@ function init()
         script_handle = js_load.handle
         script_mode = "js"
 
-        local js_init_send = Frida.send(script_handle, init_message)
+        local js_init_send = Gamelink.send(script_handle, init_message)
         if not js_init_send.success then
             Core.error("Failed to send init to JS fallback: " .. tostring(js_init_send.error))
             return false
@@ -183,12 +183,12 @@ function init()
 
         -- Send tick messages during init (the compliant Lua agent does synchronous
         -- init in its recv handler, but ticks also drive the fallback state machine)
-        local _ = Frida.send(script_handle, {
+        local _ = Gamelink.send(script_handle, {
             type = "tick",
             now_ms = Core.getTimeMillis()
         })
 
-        local messages = Frida.poll(script_handle)
+        local messages = Gamelink.poll(script_handle)
         if messages then
             for _, msg in ipairs(messages) do
                 if msg.type == "data" and msg.payload then
@@ -209,7 +209,7 @@ function init()
                                 break
                             end
                             Core.error("Init failed: " .. init_err)
-                            Frida.detach()
+                            Gamelink.detach()
                             Bridge.shutdown("Init failed: " .. init_err)
                             return
                         end
@@ -224,7 +224,7 @@ function init()
                             break
                         end
                         Core.error("Fatal error: " .. fatal_err)
-                        Frida.detach()
+                        Gamelink.detach()
                         Bridge.shutdown("Fatal error during init")
                         return
                     end
@@ -242,7 +242,7 @@ function init()
             while Core.getTimeMillis() - start_time < response_timeout do
                 if check_cancel() then return end
 
-                local messages = Frida.poll(script_handle)
+                local messages = Gamelink.poll(script_handle)
                 if messages then
                     for _, msg in ipairs(messages) do
                         if msg.type == "data" and msg.payload and msg.payload.type == "init-response" then
@@ -265,7 +265,7 @@ function init()
 
     if not got_response then
         Core.error("Timeout waiting for init response (60s)")
-        Frida.detach()
+        Gamelink.detach()
         Bridge.shutdown("Init timeout")
         return
     end
@@ -283,8 +283,8 @@ function update(dt)
     if not script_handle then return end
 
     -- Check for Frida errors (process exited, session lost, etc.)
-    if Frida.isError() then
-        local err = Frida.getError() or "Unknown error"
+    if Gamelink.isError() then
+        local err = Gamelink.getError() or "Unknown error"
         Core.error("Frida error: " .. err)
         Bridge.shutdown("Frida error: " .. err)
         return
@@ -293,12 +293,12 @@ function update(dt)
     -- Send tick messages continuously. The compliant Lua agent uses tick-driven
     -- polling (no interceptor self-polling), so ticks are needed both during
     -- init and after. The JS fallback handles ticks gracefully when not needed.
-    local _ = Frida.send(script_handle, {
+    local _ = Gamelink.send(script_handle, {
         type = "tick",
         now_ms = Core.getTimeMillis()
     })
 
-    local messages = Frida.poll(script_handle)
+    local messages = Gamelink.poll(script_handle)
     local had_data = false
 
     if messages then
@@ -308,7 +308,7 @@ function update(dt)
 
                 -- Fatal errors from agent are logged but do NOT disconnect.
                 -- Process exit is detected by the engine; Frida errors are
-                -- caught by Frida.isError() above.
+                -- caught by Gamelink.isError() above.
                 if d.type == "fatal-error" then
                     Core.error("Agent error: " .. (d.error or "unknown"))
                 end
@@ -442,15 +442,15 @@ function dispose()
         if script_handle then
             -- Tell the Frida agent to clean up (detach observers / hooks)
             pcall(function()
-                Frida.send(script_handle, { type = "shutdown" })
+                Gamelink.send(script_handle, { type = "shutdown" })
             end)
 
-            Frida.unloadScript(script_handle)
+            Gamelink.unloadScript(script_handle)
             script_handle = nil
             script_mode = nil
         end
-        if Frida.isAttached() then
-            Frida.detach()
+        if Gamelink.isAttached() then
+            Gamelink.detach()
         end
     end)
 end

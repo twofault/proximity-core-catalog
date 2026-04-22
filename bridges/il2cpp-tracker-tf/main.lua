@@ -38,7 +38,7 @@ local function attach_with_retries()
 
     for attempt = 1, ATTACH_MAX_ATTEMPTS do
         Bridge.setProgress("Attaching to process...", 40, 3)
-        local attach_result = Frida.attach({ timeout_ms = ATTACH_TIMEOUT_MS })
+        local attach_result = Gamelink.attach({ timeout_ms = ATTACH_TIMEOUT_MS })
         if not attach_result.success then
             last_error = attach_result.error or "unknown"
         else
@@ -51,7 +51,7 @@ local function attach_with_retries()
                     return false, "Cancelled"
                 end
 
-                local status = Frida.pollAttach()
+                local status = Gamelink.pollAttach()
                 if status.done then
                     if status.success then
                         return true, nil
@@ -113,7 +113,7 @@ function init()
 
     -- Step 2: Load Lua tracker agent
     Bridge.setProgress("Loading tracker agent...", 60, 1)
-    local load_result = Frida.load("unity_il2cpp_tracker.lua", {
+    local load_result = Gamelink.load("unity_il2cpp_tracker.lua", {
         runtime = "lua",
         capability = "invoke",
     })
@@ -136,7 +136,7 @@ function init()
 
     -- Step 3: Send init message to agent
     Bridge.setProgress("Initializing engine...", 80, 5)
-    local send_result = Frida.send(script_handle, { type = "init" })
+    local send_result = Gamelink.send(script_handle, { type = "init" })
     if not send_result.success then
         Core.error("Failed to send init: " .. (send_result.error or "unknown"))
         Bridge.shutdown("Init send failed")
@@ -151,7 +151,7 @@ function init()
             return
         end
 
-        local messages = Frida.poll(script_handle)
+        local messages = Gamelink.poll(script_handle)
         if messages then
             for _, msg in ipairs(messages) do
                 if msg.type == "log" and msg.payload then
@@ -184,20 +184,20 @@ function init()
 
     if not init_ok then
         Core.error("Tracker initialization failed")
-        Frida.unload(script_handle)
+        Gamelink.unload(script_handle)
         script_handle = nil
         Bridge.shutdown("Tracker init failed")
         return
     end
 
     -- Step 5: Prime the first tick
-    local tick_result = Frida.post(script_handle, {
+    local tick_result = Gamelink.post(script_handle, {
         type = "tick",
         now_ms = Core.getTimeMillis(),
     })
     if not tick_result.success then
         Core.error("Failed to prime tick: " .. (tick_result.error or "unknown"))
-        Frida.unload(script_handle)
+        Gamelink.unload(script_handle)
         script_handle = nil
         Bridge.shutdown("Failed to prime tracker")
         return
@@ -216,14 +216,14 @@ end
 function update(dt)
     if not script_handle then return end
 
-    if Frida.isError() then
-        local err = Frida.getError() or "Unknown error"
+    if Gamelink.isError() then
+        local err = Gamelink.getError() or "Unknown error"
         Core.error("Frida error: " .. err)
         Bridge.shutdown("Frida error: " .. err)
         return
     end
 
-    local messages = Frida.poll(script_handle)
+    local messages = Gamelink.poll(script_handle)
 
     local had_data = false
     if messages then
@@ -242,7 +242,7 @@ function update(dt)
 
                 -- Fatal errors from agent are logged but do NOT disconnect.
                 -- Process exit is detected by the engine; Frida errors are
-                -- caught by Frida.isError() above.
+                -- caught by Gamelink.isError() above.
                 if d.type == "fatal-error" then
                     Core.error("Agent error: " .. (d.error or "unknown"))
                 end
@@ -309,7 +309,7 @@ function update(dt)
     end
 
     if not tick_in_flight then
-        local tick_result = Frida.post(script_handle, {
+        local tick_result = Gamelink.post(script_handle, {
             type = "tick",
             now_ms = Core.getTimeMillis(),
         })
@@ -333,7 +333,7 @@ function dispose()
     pcall(function()
         if script_handle then
             pcall(function()
-                Frida.post(script_handle, { type = "shutdown" })
+                Gamelink.post(script_handle, { type = "shutdown" })
             end)
             script_handle = nil
         end
