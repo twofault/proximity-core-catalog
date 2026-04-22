@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-22T08:04:06.270634Z",
+  "generated_at": "2026-04-22T08:04:19.882274Z",
   "min_app_version": "0.1.0",
   "bridges": [
     {
@@ -88,6 +88,54 @@
               "any_of": [
                 {
                   "exact": "cs2.exe"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "dst-tracker-tf",
+      "name": "Don't Starve Together",
+      "description": "Extracts player and camera position from Don't Starve Together",
+      "author": "twofault",
+      "tags": [
+        "dont-starve-together",
+        "dst",
+        "klei",
+        "survival",
+        "lua",
+        "experimental"
+      ],
+      "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/dst-tracker-tf/icon.png",
+      "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/dst-tracker-tf/README.md",
+      "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/dst-tracker-tf",
+      "latest_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "released_at": "2026-04-22T08:04:16Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/dst-tracker-tf/v1.0.0/dst-tracker-tf-1.0.0.zip",
+          "sha256": "6c8428df67242001eaa772bf19c6c119ee7ff20490e0a004758b1ad58d488257",
+          "size_bytes": 16662,
+          "changelog": "Initial public release.\n- Uses Gamelink Lua API (formerly Frida).",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "lua_custom"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "dontstarve_steam.exe"
+                },
+                {
+                  "exact": "dontstarve_steam_x64.exe"
                 }
               ]
             }
@@ -257,6 +305,50 @@
               ],
               "forbid": [
                 "GameAssembly.dll"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "terraria-tracker-tf",
+      "name": "Terraria",
+      "description": "Tracks player position in Terraria via memory scanning (read-only, no code injection)",
+      "author": "twofault",
+      "tags": [
+        "terraria",
+        "re-logic",
+        "dotnet",
+        "2d",
+        "experimental"
+      ],
+      "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/terraria-tracker-tf/icon.png",
+      "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/terraria-tracker-tf/README.md",
+      "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/terraria-tracker-tf",
+      "latest_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "released_at": "2026-04-22T08:04:07Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/terraria-tracker-tf/v1.0.0/terraria-tracker-tf-1.0.0.zip",
+          "sha256": "2bee9c70ee32f092f6e2052ea671b872cd14b904b0473855b3aa304e05b559ee",
+          "size_bytes": 11906,
+          "changelog": "Initial public release.\n- Uses Gamelink Lua API (formerly Frida).",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "dotnet_framework"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "Terraria.exe"
+                }
               ]
             }
           }
