@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-22T18:44:59.871111Z",
+  "generated_at": "2026-04-22T18:45:16.291475Z",
   "min_app_version": "0.1.0",
   "bridges": [
     {
@@ -162,8 +162,36 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/dst-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/dst-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/dst-tracker-tf",
-      "latest_version": "1.0.0",
+      "latest_version": "1.0.1",
       "versions": [
+        {
+          "version": "1.0.1",
+          "released_at": "2026-04-22T18:45:01Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/dst-tracker-tf/v1.0.1/dst-tracker-tf-1.0.1.zip",
+          "sha256": "06244d68f1876f5173f921af6868c03021f2e0dba5b4fc10715121917e210efe",
+          "size_bytes": 16725,
+          "changelog": "- Rebrand: all user-facing \"Frida\" references now say \"GameLink\" to match the Lua API.",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "lua_custom"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "dontstarve_steam.exe"
+                },
+                {
+                  "exact": "dontstarve_steam_x64.exe"
+                }
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.0",
           "released_at": "2026-04-22T08:04:16Z",
@@ -558,8 +586,57 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/unreal-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/unreal-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/unreal-tracker-tf",
-      "latest_version": "1.0.0",
+      "latest_version": "1.0.1",
       "versions": [
+        {
+          "version": "1.0.1",
+          "released_at": "2026-04-22T18:45:10Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/unreal-tracker-tf/v1.0.1/unreal-tracker-tf-1.0.1.zip",
+          "sha256": "d1c2dbfbe105285cfeb750f816e32ce6b94da73073dbe33d4a4dba293c26a883",
+          "size_bytes": 25721,
+          "changelog": "- Rebrand: all user-facing \"Frida\" references now say \"GameLink\" to match the Lua API.",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "unreal"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "none_of": [
+                {
+                  "contains": "CrashReportClient"
+                },
+                {
+                  "contains": "EpicWebHelper"
+                },
+                {
+                  "contains": "EOSOverlay"
+                },
+                {
+                  "contains": "EasyAntiCheat"
+                },
+                {
+                  "contains": "BEService"
+                },
+                {
+                  "contains": "UE4PrereqSetup"
+                },
+                {
+                  "contains": "UnrealCEFSubProcess"
+                }
+              ]
+            },
+            "structure": {
+              "ancestor_file_exists": [
+                "Engine"
+              ],
+              "ancestor_depth": 5
+            }
+          }
+        },
         {
           "version": "1.0.0",
           "released_at": "2026-04-22T08:05:32Z",
