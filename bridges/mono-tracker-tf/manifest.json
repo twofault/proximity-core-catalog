@@ -2,7 +2,7 @@
   "id": "mono-tracker-tf",
   "name": "Unity Mono Tracker",
   "description": "Tracks camera position in Unity games using Mono runtime",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "author": "twofault",
   "entry": "main.lua",
   "frida_script": "unity_mono_tracker.lua",
