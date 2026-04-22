@@ -1,27 +1,89 @@
 # Maintainer Notes — proximity-core-catalog
 
-Operational quirks + release workflows for this repo. Read before doing
-any bulk publishing operation (tagging, renaming bridges, mass-deleting
-releases) to avoid wasted time and misleading CI output.
+Operational notes + release workflows for this repo.
 
-Keep this file updated as new quirks are discovered.
+**Current status: pre-public-release alpha.** All bridges are marked
+`experimental`. Pushing rough changes is fine — we prefer iteration over
+gatekeeping right now. The stricter review culture kicks in post-launch.
+
+---
+
+## Pre-launch posture (read this first)
+
+- The app is **not yet shipped publicly**. No users depend on this catalog yet.
+- Every bridge carries the `"experimental"` tag — users see a warning badge in the app.
+- Push freely. Test after, not before. Rollback is cheap (just re-tag).
+- Don't over-think version bumps. Patch-bump (`1.0.1` → `1.0.2`) for anything;
+  don't use semver discipline until post-launch.
+- If a release goes wrong, just re-release. You can't break a user base that doesn't exist yet.
+
+This posture will flip at launch. When it does, update this section and add
+a gating checklist (staging repo, manual QA, review approvals).
+
+---
+
+## Directory orientation
+
+**Do all catalog work in `.catalog-repo-work/`.** It's the clone of
+`github.com/twofault/proximity-core-catalog`; its `origin` points at the real
+catalog. Tags, pushes, and `scripts/release.py` all run from here.
+
+Ignore `.catalog-repo-staging/` — unrelated scratch directory from the initial
+bootstrap. Nothing there is auto-ported anywhere. If you accidentally edit
+bridge files there, copy them into `.catalog-repo-work/bridges/<id>-tf/`
+manually before releasing.
+
+Bridge directory names use the `-tf` suffix (e.g., `il2cpp-tracker-tf`). Don't
+drop the suffix when editing paths or tag names.
 
 ---
 
 ## Release workflows
 
-Every release is driven by a git tag of the form `<bridge-id>/v<major>.<minor>.<patch>`.
-Pushing the tag triggers `.github/workflows/publish.yml`, which:
+Every git tag of the form `<bridge-id>/v<major>.<minor>.<patch>` triggers
+`.github/workflows/publish.yml`, which:
 
-1. Zips `bridges/<bridge-id>/` deterministically (see `.github/scripts/build_zip.sh`)
+1. Zips `bridges/<bridge-id>/` deterministically
 2. Creates a GitHub Release with the zip attached and the CHANGELOG entry as notes
 3. Regenerates `index.json` from the full release list and pushes it to `main`
 
-All operations below ASSUME:
-- You are in the catalog repo working directory (clone of `twofault/proximity-core-catalog`)
-- `gh` CLI is authenticated as a user with push access to the `twofault` org
-  (or an account collaborator — see §1 below for the multi-account gotcha)
-- Python 3 available on PATH (or the absolute path to python.exe works)
+Prerequisites: `cd .catalog-repo-work`, `gh` logged in as `twofault`,
+Python 3 on PATH.
+
+### Decision guide — common situations
+
+**"I have bridge code changes to ship."**
+→ Bump patch version (whatever's current + 1), pick a commit message describing
+the change, run `scripts/release.py all <version> --bump-message "<msg>"`. Done.
+
+**"There are already local commits in `.catalog-repo-work` ahead of `origin/main`."**
+→ Pre-launch, this is fine. Just push them as part of the next release. The
+`scripts/release.py` flow pushes `HEAD` to `main` before tagging, so existing
+local commits go along for the ride. Don't split them into separate pushes
+for "hygiene" unless they're actually broken.
+
+**"Manifests are already bumped locally but not pushed yet."**
+→ Run `scripts/release.py retag-only <bridge-id> <version>` — it skips the
+bump step and just pushes + re-tags. Or if all 8 manifests are already
+bumped, do the token-in-URL push for `HEAD:main` manually, then loop
+`retag-only` over each bridge.
+
+**"I'm nervous because this is a `twofault` org repo."**
+→ Pre-launch, don't be. You can't break a user base that doesn't exist yet.
+If something lands wrong, re-tag with `retag-only`. Worst case you delete the
+whole catalog and re-publish everything — takes 5 minutes with `scripts/release.py all`.
+
+**"Three workflow runs show 'failure' after an `all` release."**
+→ That's the index-push race (§3 below). The zips + release entries all
+landed fine; only the index regen push for THOSE runs lost the race. Some
+LATER run regenerated the index with all entries present. Verify with:
+```bash
+curl -sL "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/index.json?t=$(date +%s)" | python3 -m json.tool | grep latest_version
+```
+If a bridge is missing from the index or stuck at an older version, re-poke
+it with `scripts/release.py retag-only <bridge-id> <version>`.
+
+---
 
 ### Easy path — use `scripts/release.py`
 
