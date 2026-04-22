@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-22T08:05:35.909231Z",
+  "generated_at": "2026-04-22T18:44:25.122642Z",
   "min_app_version": "0.1.0",
   "bridges": [
     {
@@ -195,7 +195,7 @@
     {
       "id": "minecraft-tracker-tf",
       "name": "Minecraft Java Edition",
-      "description": "Extracts player position from Minecraft Java Edition using Frida with automatic deobfuscation",
+      "description": "Extracts player position from Minecraft Java Edition using GameLink with automatic deobfuscation",
       "author": "twofault",
       "tags": [
         "minecraft",
@@ -207,8 +207,52 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/minecraft-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/minecraft-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/minecraft-tracker-tf",
-      "latest_version": "1.0.0",
+      "latest_version": "1.0.1",
       "versions": [
+        {
+          "version": "1.0.1",
+          "released_at": "2026-04-22T18:44:21Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/minecraft-tracker-tf/v1.0.1/minecraft-tracker-tf-1.0.1.zip",
+          "sha256": "17617935e2fe26542eff67c5a5d13640e0df8e94eb8079d86733636230462968",
+          "size_bytes": 12573,
+          "changelog": "- Rebrand: all user-facing \"Frida\" references now say \"GameLink\" to match the Lua API.",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "java"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "javaw.exe"
+                },
+                {
+                  "exact": "java.exe"
+                }
+              ]
+            },
+            "window_title": {
+              "any_of": [
+                {
+                  "starts_with": "Minecraft"
+                }
+              ],
+              "none_of": [
+                {
+                  "contains": "Launcher"
+                }
+              ]
+            },
+            "structure": {
+              "ancestor_contains": ".minecraft",
+              "ancestor_depth": 6
+            }
+          }
+        },
         {
           "version": "1.0.0",
           "released_at": "2026-04-22T08:03:45Z",
