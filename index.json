@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-22T20:36:23.529968Z",
+  "generated_at": "2026-04-22T20:36:35.294705Z",
   "min_app_version": "0.1.0",
   "bridges": [
     {
@@ -804,9 +804,9 @@
       "versions": [
         {
           "version": "1.0.2",
-          "released_at": "2026-04-22T20:34:40Z",
+          "released_at": "2026-04-22T20:36:28Z",
           "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/unreal-tracker-tf/v1.0.2/unreal-tracker-tf-1.0.2.zip",
-          "sha256": "a0ec7a54d6bed8bb8db3c2cfdeec42c3f2126907ffcabbd845c7a3f5f305528e",
+          "sha256": "b0cd0ed036c500d11e07c9e1d399aaca011f62e48d33af566189888ded6ca4b5",
           "size_bytes": 23631,
           "changelog": "- Bump engine tick to 60Hz + clean up bridge scripts",
           "min_app_version": "0.1.0",
