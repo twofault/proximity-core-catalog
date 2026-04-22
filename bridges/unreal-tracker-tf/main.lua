@@ -1,5 +1,5 @@
 -- Unreal Engine GameBridge
--- Extracts player data from UE4/UE5 games using Frida Lua runtime introspection
+-- Extracts player data from UE4/UE5 games using GameLink Lua runtime introspection
 -- No DLL injection required — ue_engine.lua discovers struct offsets at runtime
 -- Uses coroutines for clean async flow
 
@@ -172,14 +172,14 @@ function init()
 
     if check_cancel() then return end
 
-    -- Step 3: Attach Frida (non-blocking — yields while attaching)
+    -- Step 3: Attach GameLink (non-blocking — yields while attaching)
     Bridge.setProgress("Attaching to process...", 45, 3)
-    Core.log("Attaching Frida to PID " .. tostring(pid) .. "...")
+    Core.log("Attaching to PID " .. tostring(pid) .. "...")
 
     local attach_result = Gamelink.attach({ timeout_ms = ATTACH_TIMEOUT_MS })
     if not attach_result.success then
-        Core.error("Failed to attach Frida: " .. (attach_result.error or "unknown"))
-        Bridge.shutdown("Frida attach failed")
+        Core.error("Failed to attach: " .. (attach_result.error or "unknown"))
+        Bridge.shutdown("GameLink attach failed")
         return
     end
     -- Poll until attach completes (yields back to engine each tick)
@@ -189,8 +189,8 @@ function init()
             local status = Gamelink.pollAttach()
             if status.done then
                 if not status.success then
-                    Core.error("Frida attach failed: " .. (status.error or "unknown"))
-                    Bridge.shutdown("Frida attach failed")
+                    Core.error("GameLink attach failed: " .. (status.error or "unknown"))
+                    Bridge.shutdown("GameLink attach failed")
                     return
                 end
                 break
@@ -199,7 +199,7 @@ function init()
             coroutine.yield()
         end
     end
-    Core.log("Frida attached successfully")
+    Core.log("GameLink attached successfully")
 
     if check_cancel() then return end
 
@@ -363,11 +363,11 @@ end
 function update(dt)
     if not script_handle then return end
 
-    -- Check for Frida errors
+    -- Check for GameLink errors
     if Gamelink.isError() then
         local err = Gamelink.getError() or "Unknown error"
-        Core.error("Frida error detected: " .. err)
-        Bridge.shutdown("Frida error: " .. err)
+        Core.error("GameLink error detected: " .. err)
+        Bridge.shutdown("GameLink error: " .. err)
         return
     end
 
@@ -393,7 +393,7 @@ function update(dt)
                 local d = msg.payload
 
                 -- Fatal errors from agent are logged but do NOT disconnect.
-                -- Process exit is detected by the engine; Frida errors are
+                -- Process exit is detected by the engine; GameLink errors are
                 -- caught by Gamelink.isError() above.
                 if d.type == "fatal-error" then
                     Core.error("Agent error: " .. (d.error or "unknown"))

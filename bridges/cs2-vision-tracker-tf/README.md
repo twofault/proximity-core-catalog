@@ -1,6 +1,6 @@
 # Counter-Strike 2 (Vision)
 
-Tracks player state in Counter-Strike 2 using computer vision against the in-game minimap. No memory reading or Frida injection required.
+Tracks player state in Counter-Strike 2 using computer vision against the in-game minimap. No memory reading or GameLink injection required.
 
 ## Supported versions
 

@@ -1,4 +1,4 @@
--- bedrock_tracker.lua — Frida agent for Minecraft Bedrock Edition
+-- bedrock_tracker.lua — GameLink agent for Minecraft Bedrock Edition
 -- Discovers camera position in the executable's .data section.
 -- Compliant with flat read-only security model (memory reads only).
 --

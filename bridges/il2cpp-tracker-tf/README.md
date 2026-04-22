@@ -8,7 +8,7 @@ Tested with Unity 2019.x through 6000.x (IL2CPP backend). Detects the presence o
 
 ## Known limitations
 
-- Some Unity games use anti-cheat that may conflict with Frida-based memory reading.
+- Some Unity games use anti-cheat that may conflict with GameLink-based memory reading.
 - `warn_on_unlisted_targets` is enabled — you will receive a warning when attaching to an unverified game.
 
 ## License

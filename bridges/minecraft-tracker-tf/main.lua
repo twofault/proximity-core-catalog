@@ -1,5 +1,5 @@
 -- Minecraft Java Edition GameBridge
--- Extracts player data from Minecraft using Frida with automatic deobfuscation
+-- Extracts player data from Minecraft using GameLink with automatic deobfuscation
 -- Uses coroutines for clean async flow - no manual state machine needed!
 
 -- ============================================================================
@@ -215,7 +215,7 @@ local function resolve_name(class_name, field_name)
     end
 end
 
---- Gather initialization data for Frida script.
+--- Gather initialization data for GameLink script.
 --- Returns (data, error) - data is nil if any required mapping is missing.
 local function gather_init_data()
     local data = {
@@ -466,14 +466,14 @@ function init()
     Bridge.setProgressSnap("Mappings ready", 90)
     Core.log("Mappings ready for Minecraft " .. minecraft_version)
 
-    -- Step 6: Attach Frida (non-blocking — yields while attaching)
+    -- Step 6: Attach GameLink (non-blocking — yields while attaching)
     Bridge.setProgress("Attaching to process...", 93, 2)
-    Core.log("Attaching Frida to PID " .. tostring(pid) .. "...")
+    Core.log("Attaching to PID " .. tostring(pid) .. "...")
 
     local attach_result = Gamelink.attach({ timeout_ms = ATTACH_TIMEOUT_MS })
     if not attach_result.success then
-        Core.error("Failed to attach Frida: " .. (attach_result.error or "unknown"))
-        Bridge.shutdown("Frida attach failed")
+        Core.error("Failed to attach: " .. (attach_result.error or "unknown"))
+        Bridge.shutdown("GameLink attach failed")
         return
     end
     -- Poll until attach completes (yields back to engine each tick)
@@ -483,8 +483,8 @@ function init()
             local status = Gamelink.pollAttach()
             if status.done then
                 if not status.success then
-                    Core.error("Frida attach failed: " .. (status.error or "unknown"))
-                    Bridge.shutdown("Frida attach failed")
+                    Core.error("GameLink attach failed: " .. (status.error or "unknown"))
+                    Bridge.shutdown("GameLink attach failed")
                     return
                 end
                 break
@@ -494,27 +494,27 @@ function init()
             coroutine.yield()
         end
     end
-    Core.log("Frida attached successfully")
+    Core.log("GameLink attached successfully")
 
     if check_cancel() then return end
 
-    -- Step 7: Load the Frida Lua script (pre-trusted via manifest.json frida_script field)
+    -- Step 7: Load the GameLink Lua script (pre-trusted via manifest.json frida_script field)
     Bridge.setProgress("Loading tracker script...", 95, 1)
     local load_result = Gamelink.loadScript("minecraft_tracker.lua")
     if not load_result.success then
-        Core.error("Failed to load Frida script: " .. (load_result.error or "unknown"))
+        Core.error("Failed to load script: " .. (load_result.error or "unknown"))
         Gamelink.detach()
         Bridge.shutdown("Script load failed")
         return
     end
     script_handle = load_result.handle
-    Core.log("Frida script loaded (handle: " .. tostring(script_handle) .. ")")
+    Core.log("Script loaded (handle: " .. tostring(script_handle) .. ")")
 
     if check_cancel() then return end
 
-    -- Step 8: Prepare and send init data to Frida script via message passing
+    -- Step 8: Prepare and send init data to GameLink script via message passing
     Bridge.setProgress("Sending mappings...", 97, 1)
-    Core.log("Resolving mappings for Frida script...")
+    Core.log("Resolving mappings for script...")
     local init_data, gather_err = gather_init_data()
     if not init_data then
         Core.error("Failed to gather init data: " .. (gather_err or "unknown"))
@@ -524,13 +524,13 @@ function init()
     end
     Core.log("Resolved " .. #REQUIRED_CLASSES .. " classes and " .. #REQUIRED_FIELDS .. " fields")
 
-    -- Send init data to the Frida script via message passing
-    -- The Frida script expects: { type: "init", data: {...} }
+    -- Send init data to the GameLink script via message passing
+    -- The script expects: { type: "init", data: {...} }
     local init_message = {
         type = "init",
         data = init_data
     }
-    Core.log("Sending init message to Frida script...")
+    Core.log("Sending init message to script...")
     local send_result = Gamelink.send(script_handle, init_message)
     if not send_result.success then
         Core.error("Failed to send init data: " .. (send_result.error or "unknown"))
@@ -539,7 +539,7 @@ function init()
         return
     end
 
-    -- Wait for init response from Frida script
+    -- Wait for init response from GameLink script
     local response_timeout = 10000  -- 10 seconds
     local start_time = Core.getTimeMillis()
     local got_response = false
@@ -555,12 +555,12 @@ function init()
                     local payload = msg.payload
                     if payload.type == "init-response" then
                         if payload.success then
-                            Core.log("Frida script initialized successfully")
+                            Core.log("Script initialized successfully")
                             got_response = true
                         else
-                            Core.error("Frida init failed: " .. (payload.error or "unknown"))
+                            Core.error("Script init failed: " .. (payload.error or "unknown"))
                             Gamelink.detach()
-                            Bridge.shutdown("Frida init failed")
+                            Bridge.shutdown("Script init failed")
                             return
                         end
                         break
@@ -574,9 +574,9 @@ function init()
     end
 
     if not got_response then
-        Core.error("Timeout waiting for Frida init response")
+        Core.error("Timeout waiting for script init response")
         Gamelink.detach()
-        Bridge.shutdown("Frida init timeout")
+        Bridge.shutdown("Script init timeout")
         return
     end
 
@@ -592,15 +592,15 @@ end
 function update(dt)
     if not script_handle then return end
 
-    -- Check if Frida has encountered an error (process exited, session lost, etc.)
+    -- Check if GameLink has encountered an error (process exited, session lost, etc.)
     if Gamelink.isError() then
         local err = Gamelink.getError() or "Unknown error"
-        Core.error("Frida error detected: " .. err)
-        Bridge.shutdown("Frida error: " .. err)
+        Core.error("GameLink error detected: " .. err)
+        Bridge.shutdown("GameLink error: " .. err)
         return
     end
 
-    -- Send a tick message to drive the Lua Frida script's update loop.
+    -- Send a tick message to drive the GameLink Lua script's update loop.
     -- The Lua backend has no setInterval, so main.lua drives updates at 20Hz.
     Gamelink.send(script_handle, {type = "tick"})
 
@@ -616,7 +616,7 @@ function update(dt)
                 local d = msg.payload
 
                 -- Fatal errors from agent are logged but do NOT disconnect.
-                -- Process exit is detected by the engine; Frida errors are
+                -- Process exit is detected by the engine; GameLink errors are
                 -- caught by Gamelink.isError() above.
                 if d.type == "fatal-error" then
                     Core.error("Agent error: " .. (d.error or "unknown"))

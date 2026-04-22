@@ -2,10 +2,10 @@
 -- Extracts player position and camera position/orientation from DST
 --
 -- Architecture:
---   Lua (this file) -> Frida Lua agent (compliant, memory-read only)
+--   Lua (this file) -> GameLink Lua agent (compliant, memory-read only)
 --     -> native.observe(lua_pcall) for state discovery
 --     -> memory.read_* to walk Lua 5.1 internals for position/camera
---   Fallback: JS agent (full Frida API) for non-Lua-runtime builds
+--   Fallback: JS agent (full GameLink API) for non-Lua-runtime builds
 
 -- ============================================================================
 -- CONSTANTS
@@ -63,13 +63,13 @@ function init()
         return false
     end
 
-    -- Step 1: Attach Frida (non-blocking — yields while attaching)
+    -- Step 1: Attach GameLink (non-blocking — yields while attaching)
     Bridge.setProgress("Attaching to process...", 40, 3)
 
     local attach_result = Gamelink.attach({ timeout_ms = ATTACH_TIMEOUT_MS })
     if not attach_result.success then
-        Core.error("Failed to attach Frida: " .. (attach_result.error or "unknown"))
-        Bridge.shutdown("Frida attach failed")
+        Core.error("Failed to attach: " .. (attach_result.error or "unknown"))
+        Bridge.shutdown("GameLink attach failed")
         return
     end
     -- Poll until attach completes (yields back to engine each tick)
@@ -79,8 +79,8 @@ function init()
             local status = Gamelink.pollAttach()
             if status.done then
                 if not status.success then
-                    Core.error("Frida attach failed: " .. (status.error or "unknown"))
-                    Bridge.shutdown("Frida attach failed")
+                    Core.error("GameLink attach failed: " .. (status.error or "unknown"))
+                    Bridge.shutdown("GameLink attach failed")
                     return
                 end
                 break
@@ -89,11 +89,11 @@ function init()
             coroutine.yield()
         end
     end
-    Core.log("Frida attached successfully")
+    Core.log("GameLink attached successfully")
 
     if check_cancel() then return end
 
-    -- Step 2: Load the Frida script
+    -- Step 2: Load the GameLink script
     Bridge.setProgress("Loading tracker script...", 55, 1)
     local load_result = Gamelink.loadScript("dst_tracker.lua")
     if load_result.success then
@@ -110,13 +110,13 @@ function init()
     end
 
     if not load_result.success then
-        Core.error("Failed to load Frida script: " .. (load_result.error or "unknown"))
+        Core.error("Failed to load script: " .. (load_result.error or "unknown"))
         Gamelink.detach()
         Bridge.shutdown("Script load failed")
         return
     end
     script_handle = load_result.handle
-    Core.log("Frida script loaded (mode: " .. script_mode .. ", handle: " .. tostring(script_handle) .. ")")
+    Core.log("Script loaded (mode: " .. script_mode .. ", handle: " .. tostring(script_handle) .. ")")
 
     if check_cancel() then return end
 
@@ -196,7 +196,7 @@ function init()
 
                     if payload.type == "init-response" then
                         if payload.success then
-                            Core.log("Frida script initialized successfully")
+                            Core.log("Script initialized successfully")
                             has_camera_position = payload.hasCameraPosition or false
                             has_position = (payload.hasPosition ~= false)
                             Core.log("Camera 3D: " .. (has_camera_position and "yes" or "no") ..
@@ -282,11 +282,11 @@ end
 function update(dt)
     if not script_handle then return end
 
-    -- Check for Frida errors (process exited, session lost, etc.)
+    -- Check for GameLink errors (process exited, session lost, etc.)
     if Gamelink.isError() then
         local err = Gamelink.getError() or "Unknown error"
-        Core.error("Frida error: " .. err)
-        Bridge.shutdown("Frida error: " .. err)
+        Core.error("GameLink error: " .. err)
+        Bridge.shutdown("GameLink error: " .. err)
         return
     end
 
@@ -307,7 +307,7 @@ function update(dt)
                 local d = msg.payload
 
                 -- Fatal errors from agent are logged but do NOT disconnect.
-                -- Process exit is detected by the engine; Frida errors are
+                -- Process exit is detected by the engine; GameLink errors are
                 -- caught by Gamelink.isError() above.
                 if d.type == "fatal-error" then
                     Core.error("Agent error: " .. (d.error or "unknown"))
@@ -440,7 +440,7 @@ function dispose()
     Core.log("DST Bridge: Disposing...")
     pcall(function()
         if script_handle then
-            -- Tell the Frida agent to clean up (detach observers / hooks)
+            -- Tell the GameLink agent to clean up (detach observers / hooks)
             pcall(function()
                 Gamelink.send(script_handle, { type = "shutdown" })
             end)

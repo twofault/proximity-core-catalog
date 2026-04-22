@@ -122,7 +122,7 @@ function update(dt)
     if not handle then return end
 
     if Gamelink.is_error() then
-        Bridge.shutdown("Frida error: " .. (Gamelink.last_error() or "unknown"))
+        Bridge.shutdown("GameLink error: " .. (Gamelink.last_error() or "unknown"))
         return
     end
 
@@ -137,7 +137,7 @@ function update(dt)
             if msg.type == "data" and msg.payload then
                 local d = msg.payload
                 -- Fatal errors from agent are logged but do NOT disconnect.
-                -- Process exit is detected by the engine; Frida errors are
+                -- Process exit is detected by the engine; GameLink errors are
                 -- caught by Gamelink.is_error() above.
                 if d.type == "fatal-error" then
                     Core.error("Agent error: " .. tostring(d.error))

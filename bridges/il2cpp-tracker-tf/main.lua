@@ -1,5 +1,5 @@
 -- Unity IL2CPP Tracker - GameBridge package
--- Extracts camera position from Unity IL2CPP games via Frida Lua runtime.
+-- Extracts camera position from Unity IL2CPP games via GameLink Lua runtime.
 -- Uses pull-tick mode: host sends tick messages, agent responds with data.
 
 -- ============================================================================
@@ -93,18 +93,18 @@ function init()
     Core.log("IL2CPP Tracker: Initializing for PID " .. tostring(pid))
     Bridge.setProgress("Initializing...", 5, 2)
 
-    -- Step 1: Attach Frida (non-blocking + retry to handle early-process startup races)
+    -- Step 1: Attach GameLink (non-blocking + retry to handle early-process startup races)
     local attached, attach_error = attach_with_retries()
     if not attached then
         if attach_error == "Cancelled" then
             Bridge.shutdown("Cancelled")
         else
-            Core.error("Frida attach failed: " .. tostring(attach_error))
-            Bridge.shutdown("Frida attach failed")
+            Core.error("GameLink attach failed: " .. tostring(attach_error))
+            Bridge.shutdown("GameLink attach failed")
         end
         return
     end
-    Core.log("Frida attached successfully")
+    Core.log("GameLink attached successfully")
 
     if Bridge.isCancelled() then
         Bridge.shutdown("Cancelled")
@@ -218,8 +218,8 @@ function update(dt)
 
     if Gamelink.isError() then
         local err = Gamelink.getError() or "Unknown error"
-        Core.error("Frida error: " .. err)
-        Bridge.shutdown("Frida error: " .. err)
+        Core.error("GameLink error: " .. err)
+        Bridge.shutdown("GameLink error: " .. err)
         return
     end
 
@@ -241,7 +241,7 @@ function update(dt)
                 local d = msg.payload
 
                 -- Fatal errors from agent are logged but do NOT disconnect.
-                -- Process exit is detected by the engine; Frida errors are
+                -- Process exit is detected by the engine; GameLink errors are
                 -- caught by Gamelink.isError() above.
                 if d.type == "fatal-error" then
                     Core.error("Agent error: " .. (d.error or "unknown"))

@@ -1,6 +1,6 @@
--- unity_il2cpp_tracker.lua -- Unity IL2CPP Camera Tracker for Frida Lua
+-- unity_il2cpp_tracker.lua -- Unity IL2CPP Camera Tracker for GameLink Lua
 --
--- Lua translation of the frida-il2cpp-bridge approach.
+-- Based on the frida-il2cpp-bridge project, but runs via GameLink.
 -- Uses IL2CPP C API (whitelisted) for metadata discovery, then
 -- il2cpp_resolve_icall + native.lookup() to call Unity internal methods
 -- (Camera::get_main, Component::get_transform, Transform::get_position, etc.)
@@ -176,7 +176,7 @@ local function wait_for_il2cpp_ready()
     log("IL2CPP:   domain = 0x" .. string.format("%X", domain))
 
     -- NOTE: il2cpp_thread_attach is deliberately NOT called here.
-    -- It registers the Frida agent thread with IL2CPP's thread tracker,
+    -- It registers the GameLink agent thread with IL2CPP's thread tracker,
     -- causing Unity's shutdown to wait for it forever.
     -- The metadata APIs we use work without thread attach.
 

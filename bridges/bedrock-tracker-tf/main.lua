@@ -75,12 +75,12 @@ function init()
 
     if check_cancel() then return end
 
-    -- Attach Frida
+    -- Attach GameLink
     Bridge.setProgress("Attaching to process...", 40, 3)
     local attach_result = Gamelink.attach({ timeout_ms = ATTACH_TIMEOUT_MS })
     if not attach_result.success then
-        Core.error("Frida attach failed: " .. (attach_result.error or "unknown"))
-        Bridge.shutdown("Frida attach failed")
+        Core.error("GameLink attach failed: " .. (attach_result.error or "unknown"))
+        Bridge.shutdown("GameLink attach failed")
         return
     end
     if attach_result.pending then
@@ -89,8 +89,8 @@ function init()
             local status = Gamelink.pollAttach()
             if status.done then
                 if not status.success then
-                    Core.error("Frida attach failed: " .. (status.error or "unknown"))
-                    Bridge.shutdown("Frida attach failed")
+                    Core.error("GameLink attach failed: " .. (status.error or "unknown"))
+                    Bridge.shutdown("GameLink attach failed")
                     return
                 end
                 break
@@ -99,7 +99,7 @@ function init()
             coroutine.yield()
         end
     end
-    Core.log("Frida attached")
+    Core.log("GameLink attached")
 
     if check_cancel() then return end
 
@@ -227,8 +227,8 @@ function update(dt)
 
     if Gamelink.isError() then
         local err = Gamelink.getError() or "Unknown"
-        Core.error("Frida error: " .. err)
-        Bridge.shutdown("Frida error: " .. err)
+        Core.error("GameLink error: " .. err)
+        Bridge.shutdown("GameLink error: " .. err)
         return
     end
 

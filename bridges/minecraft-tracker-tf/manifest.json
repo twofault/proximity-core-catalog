@@ -1,8 +1,8 @@
 {
   "id": "minecraft-tracker-tf",
   "name": "Minecraft Java Edition",
-  "description": "Extracts player position from Minecraft Java Edition using Frida with automatic deobfuscation",
-  "version": "1.0.0",
+  "description": "Extracts player position from Minecraft Java Edition using GameLink with automatic deobfuscation",
+  "version": "1.0.1",
   "author": "twofault",
   "entry": "main.lua",
   "frida_script": "minecraft_tracker.lua",

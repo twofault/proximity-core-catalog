@@ -1,4 +1,4 @@
--- unity_mono_tracker.lua -- Unity Mono Camera Tracker for Frida Lua
+-- unity_mono_tracker.lua -- Unity Mono Camera Tracker for GameLink Lua
 --
 -- Compliant with flat read-only security model. Does NOT call
 -- mono_runtime_invoke (excluded from whitelist). Instead:
@@ -152,7 +152,7 @@ local function attach_thread()
         return false, "mono_get_root_domain returned NULL"
     end
     -- NOTE: mono_thread_attach deliberately NOT called.
-    -- It freezes Mono's shutdown (waits for Frida agent thread forever).
+    -- It freezes Mono's shutdown (waits for GameLink agent thread forever).
     -- Metadata APIs work without attach for read-only queries.
     return true
 end

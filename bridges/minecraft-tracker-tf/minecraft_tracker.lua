@@ -1,4 +1,4 @@
--- ProximityCore Frida Lua Script: Minecraft Java Edition Tracker
+-- ProximityCore GameLink Lua Script: Minecraft Java Edition Tracker
 --
 -- Reads player position/rotation via JNI. Read-only security model:
 --   - JNI_GetCreatedJavaVMs pre-whitelisted (jvm.dll export)

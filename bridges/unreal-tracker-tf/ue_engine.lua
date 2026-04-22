@@ -1,4 +1,4 @@
--- ue_engine.lua -- Unreal Engine Runtime Introspection Library for Frida Lua
+-- ue_engine.lua -- Unreal Engine Runtime Introspection Library for GameLink Lua
 --
 -- Lua translation of ue_engine.js. A comprehensive library for runtime
 -- discovery and interaction with Unreal Engine structures.
