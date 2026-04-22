@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-22T18:45:16.291475Z",
+  "generated_at": "2026-04-22T20:34:37.482688Z",
   "min_app_version": "0.1.0",
   "bridges": [
     {
@@ -19,8 +19,36 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/bedrock-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/bedrock-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/bedrock-tracker-tf",
-      "latest_version": "1.0.1",
+      "latest_version": "1.0.2",
       "versions": [
+        {
+          "version": "1.0.2",
+          "released_at": "2026-04-22T20:33:44Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/bedrock-tracker-tf/v1.0.2/bedrock-tracker-tf-1.0.2.zip",
+          "sha256": "6743169cf5054069ca909c0e5b60da4669a3256258ad31997c09fc8e1cab0b4a",
+          "size_bytes": 7619,
+          "changelog": "- Bump engine tick to 60Hz + clean up bridge scripts",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "custom"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "Minecraft.Windows.exe"
+                },
+                {
+                  "starts_with": "Minecraft.Windows"
+                }
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.1",
           "released_at": "2026-04-22T18:44:30Z",
@@ -96,8 +124,31 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/cs2-vision-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/cs2-vision-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/cs2-vision-tracker-tf",
-      "latest_version": "1.0.1",
+      "latest_version": "1.0.2",
       "versions": [
+        {
+          "version": "1.0.2",
+          "released_at": "2026-04-22T20:34:00Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/cs2-vision-tracker-tf/v1.0.2/cs2-vision-tracker-tf-1.0.2.zip",
+          "sha256": "eafee83d009270c401d4b6571d98ff7ca3011265e77e5579845669895a0ef4b2",
+          "size_bytes": 74701,
+          "changelog": "- Bump engine tick to 60Hz + clean up bridge scripts",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "cs2.exe"
+                }
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.1",
           "released_at": "2026-04-22T18:44:36Z",
@@ -162,8 +213,36 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/dst-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/dst-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/dst-tracker-tf",
-      "latest_version": "1.0.1",
+      "latest_version": "1.0.2",
       "versions": [
+        {
+          "version": "1.0.2",
+          "released_at": "2026-04-22T20:33:58Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/dst-tracker-tf/v1.0.2/dst-tracker-tf-1.0.2.zip",
+          "sha256": "53df6238726cceb2f7f054759e4b48353904ace21561af6157ed8634be88a69c",
+          "size_bytes": 15491,
+          "changelog": "- Bump engine tick to 60Hz + clean up bridge scripts",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "lua_custom"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "dontstarve_steam.exe"
+                },
+                {
+                  "exact": "dontstarve_steam_x64.exe"
+                }
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.1",
           "released_at": "2026-04-22T18:45:01Z",
@@ -237,8 +316,38 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/il2cpp-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/il2cpp-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/il2cpp-tracker-tf",
-      "latest_version": "1.0.1",
+      "latest_version": "1.0.2",
       "versions": [
+        {
+          "version": "1.0.2",
+          "released_at": "2026-04-22T20:34:07Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/il2cpp-tracker-tf/v1.0.2/il2cpp-tracker-tf-1.0.2.zip",
+          "sha256": "7d11be8ab70101462bbf1b316ba06152456dab58eb698dfe396b10dfd6d0d76f",
+          "size_bytes": 10963,
+          "changelog": "- Bump engine tick to 60Hz + clean up bridge scripts",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "unity-il2cpp"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "none_of": [
+                {
+                  "contains": "crashhandler"
+                }
+              ]
+            },
+            "files": {
+              "require_any": [
+                "GameAssembly.dll"
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.1",
           "released_at": "2026-04-22T18:44:41Z",
@@ -316,8 +425,52 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/minecraft-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/minecraft-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/minecraft-tracker-tf",
-      "latest_version": "1.0.1",
+      "latest_version": "1.0.2",
       "versions": [
+        {
+          "version": "1.0.2",
+          "released_at": "2026-04-22T20:34:14Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/minecraft-tracker-tf/v1.0.2/minecraft-tracker-tf-1.0.2.zip",
+          "sha256": "4d44ef6a864049f00f794c879c44b8d09567c8d9527dcb4ebc1c49502c281980",
+          "size_bytes": 10731,
+          "changelog": "- Bump engine tick to 60Hz + clean up bridge scripts",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "java"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "javaw.exe"
+                },
+                {
+                  "exact": "java.exe"
+                }
+              ]
+            },
+            "window_title": {
+              "any_of": [
+                {
+                  "starts_with": "Minecraft"
+                }
+              ],
+              "none_of": [
+                {
+                  "contains": "Launcher"
+                }
+              ]
+            },
+            "structure": {
+              "ancestor_contains": ".minecraft",
+              "ancestor_depth": 6
+            }
+          }
+        },
         {
           "version": "1.0.1",
           "released_at": "2026-04-22T18:44:21Z",
@@ -515,8 +668,33 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/terraria-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/terraria-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/terraria-tracker-tf",
-      "latest_version": "1.0.1",
+      "latest_version": "1.0.2",
       "versions": [
+        {
+          "version": "1.0.2",
+          "released_at": "2026-04-22T20:34:31Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/terraria-tracker-tf/v1.0.2/terraria-tracker-tf-1.0.2.zip",
+          "sha256": "053872cdceddea9a32b00d4a2f8302307e4df532ce47cc669136aba2c1b91256",
+          "size_bytes": 11761,
+          "changelog": "- Bump engine tick to 60Hz + clean up bridge scripts",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "dotnet_framework"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "Terraria.exe"
+                }
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.1",
           "released_at": "2026-04-22T18:44:55Z",
