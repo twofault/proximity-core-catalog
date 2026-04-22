@@ -1,21 +1,11 @@
--- Unity Mono Tracker - GameBridge package
--- Extracts camera position from Unity Mono games via GameLink Lua runtime.
--- Uses pull-tick mode: host sends tick messages, agent responds with data.
--- Compliant with flat read-only security model (no mono_runtime_invoke).
-
--- ============================================================================
--- CONSTANTS
--- ============================================================================
+-- Unity Mono camera tracker. Pull-tick mode: host ticks, agent responds.
+-- Flat read-only sandbox — mono_runtime_invoke not whitelisted.
 
 local TICK_STALL_RESET_SECONDS = 0.2
 local ATTACH_TIMEOUT_MS = 25000
 local ATTACH_MAX_ATTEMPTS = 3
 local ATTACH_RETRY_DELAY_MS = 4000
-local SEARCHING_LOG_INTERVAL = 200  -- Log "searching" every 10 seconds at 20Hz
-
--- ============================================================================
--- STATE
--- ============================================================================
+local SEARCHING_LOG_INTERVAL = 600  -- Log "searching" every 10 seconds at 60Hz
 
 local script_handle = nil
 local tick_in_flight = false
@@ -79,10 +69,6 @@ local function attach_with_retries()
     return false, last_error
 end
 
--- ============================================================================
--- INITIALIZATION (runs as coroutine)
--- ============================================================================
-
 function init()
     local pid = Bridge.getPid()
     if not pid then
@@ -94,7 +80,6 @@ function init()
     Core.log("Mono Tracker: Initializing for PID " .. tostring(pid))
     Bridge.setProgress("Initializing...", 5, 2)
 
-    -- Step 1: Attach GameLink (non-blocking + retry to handle early-process startup races)
     local attached, attach_error = attach_with_retries()
     if not attached then
         if attach_error == "Cancelled" then
@@ -112,7 +97,6 @@ function init()
         return
     end
 
-    -- Step 2: Reuse parked script if present, otherwise load agent
     Bridge.setProgress("Loading tracker agent...", 60, 1)
     local loaded = Gamelink.getLoadedScripts()
     if loaded and #loaded > 0 then
@@ -147,7 +131,6 @@ function init()
         return
     end
 
-    -- Step 3: Send init message to agent
     Bridge.setProgress("Initializing engine...", 80, 5)
     local send_result = Gamelink.send(script_handle, { type = "init" })
     if not send_result.success then
@@ -156,7 +139,6 @@ function init()
         return
     end
 
-    -- Step 4: Wait for init-response from agent
     local init_ok = false
     while true do
         if Bridge.isCancelled() then
@@ -203,7 +185,6 @@ function init()
         return
     end
 
-    -- Step 5: Prime the first tick
     local tick_result = Gamelink.post(script_handle, {
         type = "tick",
         now_ms = Core.getTimeMillis(),
@@ -221,10 +202,6 @@ function init()
     Bridge.setProgressSnap("Connected!", 100)
     Core.log("Mono Tracker initialized (pull-tick mode, read-only)")
 end
-
--- ============================================================================
--- UPDATE LOOP
--- ============================================================================
 
 function update(dt)
     if not script_handle then return end
@@ -253,18 +230,15 @@ function update(dt)
                 no_data_count = 0
                 local d = msg.payload
 
-                -- Fatal errors from agent are logged but do NOT disconnect.
-                -- Process exit is detected by the engine; GameLink errors are
-                -- caught by Gamelink.isError() above.
+                -- Fatal errors logged but do not disconnect — process exit is
+                -- detected by the engine; Frida errors caught above.
                 if d.type == "fatal-error" then
                     Core.error("Agent error: " .. (d.error or "unknown"))
                 end
 
-                -- Set camera position (negate Z for coordinate conversion)
                 if d.posX then
                     LocalPlayer.setCameraPosition(
                         d.posX, d.posY, -(d.posZ or 0))
-                    -- Clear searching state when position data resumes
                     if is_searching then
                         is_searching = false
                         Bridge.push("searching_for_player", false, 30000)
@@ -272,15 +246,14 @@ function update(dt)
                     end
                 end
 
-                -- Set orientation from euler angles or forward vector
                 if d.eulerX then
                     local function toSigned(deg)
                         if deg > 180 then return deg - 360 end
                         return deg
                     end
-                    -- Unity X positive = looking down, ours = looking up
+                    -- Unity X+ = looking down, ours = looking up.
                     local pitch = math.rad(toSigned(d.eulerX))
-                    -- Unity Y: 0=+Z CW, ours: 0=-Z CCW. Negate for Z flip
+                    -- Unity Y: 0=+Z CW, ours: 0=-Z CCW — negate for Z flip.
                     local yaw = -math.rad(toSigned(d.eulerY))
                     local roll = math.rad(toSigned(d.eulerZ))
                     LocalPlayer.setCameraOrientation(pitch, yaw, roll)
@@ -309,7 +282,6 @@ function update(dt)
         end
     end
 
-    -- Pull-tick scheduling
     local dt_seconds = dt
     if not dt_seconds or dt_seconds <= 0 then dt_seconds = 1 / 60 end
 
@@ -335,10 +307,6 @@ function update(dt)
         tick_wait_seconds = 0
     end
 end
-
--- ============================================================================
--- DISPOSAL
--- ============================================================================
 
 function dispose()
     Core.log("Mono Tracker: Disposing...")

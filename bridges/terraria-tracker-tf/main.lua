@@ -1,10 +1,10 @@
--- Terraria Game Bridge (Compliant)
+-- Terraria Game Bridge
 -- Host-side script — no file injection, pure memory-scan approach.
 
 local INIT_TIMEOUT_MS = 60000
 local TICK_STALL_SECONDS = 1.5
 local ATTACH_TIMEOUT_MS = 8000
-local SEARCHING_LOG_INTERVAL = 200  -- Log "searching" every 10 seconds at 20Hz
+local SEARCHING_LOG_INTERVAL = 600  -- Log "searching" every 10 seconds at 60Hz
 
 local handle = nil
 local no_data = 0
@@ -35,7 +35,6 @@ function init()
         Bridge.shutdown("Attach failed: " .. tostring(attach.error))
         return
     end
-    -- Poll until attach completes (yields back to engine each tick)
     if attach.pending then
         while true do
             if cancelled() then return end
@@ -137,7 +136,7 @@ function update(dt)
             if msg.type == "data" and msg.payload then
                 local d = msg.payload
                 -- Fatal errors from agent are logged but do NOT disconnect.
-                -- Process exit is detected by the engine; GameLink errors are
+                -- Process exit is detected by the engine; Frida errors are
                 -- caught by Gamelink.is_error() above.
                 if d.type == "fatal-error" then
                     Core.error("Agent error: " .. tostring(d.error))
@@ -145,7 +144,6 @@ function update(dt)
                     had_data = true
                     no_data = 0
                     LocalPlayer.setCameraPosition(d.posX, d.posY, d.posZ)
-                    -- Clear searching state when position data resumes
                     if is_searching then
                         is_searching = false
                         Bridge.push("searching_for_player", false, 30000)

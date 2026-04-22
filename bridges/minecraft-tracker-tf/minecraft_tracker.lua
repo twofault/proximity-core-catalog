@@ -1,6 +1,5 @@
--- ProximityCore GameLink Lua Script: Minecraft Java Edition Tracker
---
--- Reads player position/rotation via JNI. Read-only security model:
+-- Minecraft Java Edition tracker — reads player position/rotation via JNI.
+-- Read-only security model:
 --   - JNI_GetCreatedJavaVMs pre-whitelisted (jvm.dll export)
 --   - JNI vtable functions whitelisted via native.lookup("jvm.dll", "jni::Name", addr)
 --   - JIT accessor stubs accepted in executable heap memory (not just loaded modules)
@@ -8,7 +7,7 @@
 --   - No NewGlobalRef (JVM mutation) — player re-read each tick
 --   - Tick-driven by main.lua (no setInterval in Lua backend)
 
-local PTR = 8 -- pointer size (64-bit JVM only)
+local PTR = 8 -- 64-bit JVM only
 
 -- JNINativeInterface_ vtable slot indices
 local JNI = {
@@ -21,18 +20,15 @@ local JNI = {
 -- JNIInvokeInterface_ vtable slot indices
 local JVM = { AttachCurrentThread = 4, GetEnv = 6 }
 
--- Runtime state
-local env    = nil   -- JNIEnv* (integer)
-local vtable = nil   -- function table pointer (integer)
-local funcs  = {}    -- name -> verified native address
+local env    = nil
+local vtable = nil
+local funcs  = {}
 
-local mc = {}        -- resolved Minecraft JNI references
+local mc = {}
 local jvm_ready = false
 local initialized = false
 local consecutive_errors = 0
 local error_time = 0
-
--- ── JNI vtable helpers ──────────────────────────────────────────
 
 local function verify_fn(name, index)
     local addr = memory.read_pointer(vtable + index * PTR)
@@ -50,8 +46,6 @@ local function jcall(name, ret, types, args)
     if not addr then return nil, name .. " not resolved" end
     return native.call(addr, ret, types, args)
 end
-
--- ── JNI wrappers ────────────────────────────────────────────────
 
 local function check_ex()
     if not funcs["ExceptionOccurred"] then return false end
@@ -74,7 +68,6 @@ local function find_class(jni_name)
     return cls
 end
 
---- Resolve a field or static field ID, allocating temp strings for name+sig.
 local function get_fid(fn_name, clazz, name, sig)
     local n, s = memory.alloc_utf8(name), memory.alloc_utf8(sig)
     if not n or not s then
@@ -113,8 +106,8 @@ local function get_double(obj, fid)
         {"pointer", "pointer", "pointer"}, {env, obj, fid})
 end
 
---- Read float field. Try GetFloatField (XMM0 dispatch), fall back to
---- GetIntField with bit reinterpretation via string.pack/unpack.
+-- GetFloatField uses XMM0 dispatch; on platforms where that fails, fall back
+-- to GetIntField and reinterpret the raw bits via string.pack/unpack.
 local function get_float(obj, fid)
     if funcs["GetFloatField"] then
         local v = jcall("GetFloatField", "float",
@@ -127,9 +120,7 @@ local function get_float(obj, fid)
     return string.unpack("f", string.pack("i4", raw))
 end
 
--- ── JVM initialization ──────────────────────────────────────────
-
-local vm_ptr = nil  -- cached for re-attachment
+local vm_ptr = nil
 
 local function init_jvm()
     log("Initializing JVM access...")
@@ -153,7 +144,7 @@ local function init_jvm()
     end
     log("  JavaVM* = " .. string.format("0x%X", vm_ptr))
 
-    -- Read JavaVM vtable and whitelist AttachCurrentThread via icall path
+    -- Whitelist AttachCurrentThread via icall path before invoking it.
     local jvm_vt = memory.read_pointer(vm_ptr)
     if not jvm_vt or jvm_vt == 0 then return false, "no JavaVM vtable" end
 
@@ -161,7 +152,7 @@ local function init_jvm()
     if not at_addr or at_addr == 0 then return false, "no AttachCurrentThread" end
     native.lookup("jvm.dll", "jni::AttachCurrentThread", at_addr)
 
-    -- Attach current thread to JVM (required before any JNI calls)
+    -- AttachCurrentThread is required before any JNI call from this thread.
     local env_buf = memory.alloc(PTR)
     if not env_buf then return false, "alloc failed" end
 
@@ -179,8 +170,6 @@ local function init_jvm()
     if not vtable or vtable == 0 then return false, "no JNI vtable" end
     return true
 end
-
--- ── Verify JNI functions ────────────────────────────────────────
 
 local function verify_jni_functions()
     log("Verifying JNI vtable...")
@@ -202,7 +191,7 @@ local function verify_jni_functions()
     if #failed > 0 then
         return false, "failed: " .. table.concat(failed, ", ")
     end
-    -- Optional (don't block init)
+    -- Optional functions — missing ones are not fatal.
     for _, e in ipairs({
         {"ExceptionOccurred", JNI.ExceptionOccurred},
         {"ExceptionClear", JNI.ExceptionClear},
@@ -216,8 +205,6 @@ local function verify_jni_functions()
     end
     return true
 end
-
--- ── Minecraft class/field resolution ────────────────────────────
 
 local function apply_mappings(data)
     log("Resolving Minecraft " .. (data.version or "?") .. "...")
@@ -262,8 +249,6 @@ local function apply_mappings(data)
     return true
 end
 
--- ── Player data reading ─────────────────────────────────────────
-
 local function get_player_data()
     local inst = get_static_obj(mc.mc_cls, mc.inst_fid)
     if not inst or inst == 0 then return nil end
@@ -290,8 +275,6 @@ local function get_player_data()
     }
 end
 
--- ── Tick + message handling ─────────────────────────────────────
-
 local function do_tick()
     if not initialized then return end
     local ok, result = pcall(get_player_data)
@@ -306,8 +289,8 @@ local function do_tick()
         if not ok then log("Read error: " .. tostring(result):sub(1, 200)) end
         error_time = now
     end
-    -- Send heartbeat so the host knows we're alive but have no position.
-    -- No fatal-error: the engine detects process exit; we just keep trying.
+    -- Heartbeat only — process exit is detected by the engine, so we keep trying
+    -- silently rather than raising a fatal-error on transient read failures.
     sendTagged({ type = "heartbeat", status = "no-position",
         errors = consecutive_errors })
 end
@@ -339,8 +322,6 @@ local function handle_message(message)
     end
     recv(handle_message)
 end
-
--- ── Entry point ─────────────────────────────────────────────────
 
 log("ProximityCore: Minecraft Tracker (Lua)")
 

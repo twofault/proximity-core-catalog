@@ -2,21 +2,13 @@
 -- Extracts player position and camera position/orientation from DST
 --
 -- Architecture:
---   Lua (this file) -> GameLink Lua agent (compliant, memory-read only)
+--   Lua (this file) -> Frida Lua agent (compliant, memory-read only)
 --     -> native.observe(lua_pcall) for state discovery
 --     -> memory.read_* to walk Lua 5.1 internals for position/camera
---   Fallback: JS agent (full GameLink API) for non-Lua-runtime builds
-
--- ============================================================================
--- CONSTANTS
--- ============================================================================
+--   Fallback: JS agent (full Frida API) for non-Lua-runtime builds
 
 local ATTACH_TIMEOUT_MS = 10000
-local SEARCHING_LOG_INTERVAL = 200  -- Log "searching" every 10 seconds at 20Hz
-
--- ============================================================================
--- STATE
--- ============================================================================
+local SEARCHING_LOG_INTERVAL = 600  -- Log "searching" every 10 seconds at 60Hz
 
 local script_handle = nil
 local script_mode = nil -- "lua" or "js"
@@ -39,10 +31,6 @@ local cur_cam_dist = nil
 local ZOOM_SMOOTH = 4.0
 
 
--- ============================================================================
--- INITIALIZATION (runs as coroutine)
--- ============================================================================
-
 function init()
     local pid = Bridge.getPid()
     if not pid then
@@ -63,16 +51,14 @@ function init()
         return false
     end
 
-    -- Step 1: Attach GameLink (non-blocking — yields while attaching)
     Bridge.setProgress("Attaching to process...", 40, 3)
 
     local attach_result = Gamelink.attach({ timeout_ms = ATTACH_TIMEOUT_MS })
     if not attach_result.success then
-        Core.error("Failed to attach: " .. (attach_result.error or "unknown"))
+        Core.error("Failed to attach Frida: " .. (attach_result.error or "unknown"))
         Bridge.shutdown("GameLink attach failed")
         return
     end
-    -- Poll until attach completes (yields back to engine each tick)
     if attach_result.pending then
         while true do
             if check_cancel() then return end
@@ -93,7 +79,6 @@ function init()
 
     if check_cancel() then return end
 
-    -- Step 2: Load the GameLink script
     Bridge.setProgress("Loading tracker script...", 55, 1)
     local load_result = Gamelink.loadScript("dst_tracker.lua")
     if load_result.success then
@@ -110,17 +95,16 @@ function init()
     end
 
     if not load_result.success then
-        Core.error("Failed to load script: " .. (load_result.error or "unknown"))
+        Core.error("Failed to load Frida script: " .. (load_result.error or "unknown"))
         Gamelink.detach()
         Bridge.shutdown("Script load failed")
         return
     end
     script_handle = load_result.handle
-    Core.log("Script loaded (mode: " .. script_mode .. ", handle: " .. tostring(script_handle) .. ")")
+    Core.log("GameLink script loaded (mode: " .. script_mode .. ", handle: " .. tostring(script_handle) .. ")")
 
     if check_cancel() then return end
 
-    -- Step 3: Send init message to trigger agent initialization
     Bridge.setProgress("Starting runtime discovery...", 80, 5)
 
     local init_message = {
@@ -135,7 +119,6 @@ function init()
         return
     end
 
-    -- Step 4: Wait for init response, processing progress updates
     local response_timeout = 60000
     local start_time = Core.getTimeMillis()
     local got_response = false
@@ -196,7 +179,7 @@ function init()
 
                     if payload.type == "init-response" then
                         if payload.success then
-                            Core.log("Script initialized successfully")
+                            Core.log("GameLink script initialized successfully")
                             has_camera_position = payload.hasCameraPosition or false
                             has_position = (payload.hasPosition ~= false)
                             Core.log("Camera 3D: " .. (has_camera_position and "yes" or "no") ..
@@ -270,19 +253,13 @@ function init()
         return
     end
 
-    -- Step 5: Ready!
     Bridge.setProgressSnap("Connected!", 100)
     Core.log("DST Bridge initialized")
 end
 
--- ============================================================================
--- UPDATE LOOP
--- ============================================================================
-
 function update(dt)
     if not script_handle then return end
 
-    -- Check for GameLink errors (process exited, session lost, etc.)
     if Gamelink.isError() then
         local err = Gamelink.getError() or "Unknown error"
         Core.error("GameLink error: " .. err)
@@ -307,7 +284,7 @@ function update(dt)
                 local d = msg.payload
 
                 -- Fatal errors from agent are logged but do NOT disconnect.
-                -- Process exit is detected by the engine; GameLink errors are
+                -- Process exit is detected by the engine; Frida errors are
                 -- caught by Gamelink.isError() above.
                 if d.type == "fatal-error" then
                     Core.error("Agent error: " .. (d.error or "unknown"))
@@ -322,7 +299,6 @@ function update(dt)
                 if d.type == "data" and (d.posX or d.camX or d.camHeading) then
                     had_data = true
                     no_data_count = 0
-                    -- Clear searching state when position data resumes
                     if is_searching then
                         is_searching = false
                         Bridge.push("searching_for_player", false, 30000)
@@ -335,7 +311,6 @@ function update(dt)
                     local pitchRad = math.rad(pitchDeg)
                     local camDist = d.camDistance or 30
 
-                    -- Smooth zoom distance (exponential ease-out)
                     if cur_cam_dist == nil then
                         cur_cam_dist = camDist
                     else
@@ -350,8 +325,8 @@ function update(dt)
                     -- moves → player walked. When heading/distance change → orbit/zoom,
                     -- player stays put. This matches the old architecture exactly.
                     if player_x == nil then
-                        -- First frame: seed from entity stale position (close enough)
-                        -- or approximate from camera inverse
+                        -- First frame: seed from entity stale position, or
+                        -- approximate from camera inverse if unavailable
                         if d.posX then
                             player_x = d.posX
                             player_z = d.posZ
@@ -368,7 +343,6 @@ function update(dt)
                         prev_heading = headingDeg
                         prev_distance = camDist
                     elseif d.camX and prev_cam_x then
-                        -- Detect what changed since last frame
                         local heading_changed = math.abs(headingDeg - prev_heading) > 0.3
                         local distance_changed = math.abs(camDist - prev_distance) > 0.05
 
@@ -395,16 +369,14 @@ function update(dt)
                     local posY = 0
                     local posZ = player_z
 
-                    -- ── Camera = player + orbit offset (old architecture) ──
-                    -- Reconstruct camera from player position + heading + smoothed
-                    -- distance. Only the camera moves during orbit/zoom.
+                    -- Reconstruct camera from player position + heading +
+                    -- smoothed distance. Only the camera moves during orbit/zoom.
                     local hDist = cur_cam_dist * math.cos(pitchRad)
                     local vDist = cur_cam_dist * math.sin(pitchRad)
                     local camX = posX + hDist * math.cos(headingRad)
                     local camY = posY + vDist
                     local camZ = posZ + hDist * math.sin(headingRad)
 
-                    -- Yaw from heading (same convention as old code)
                     local yaw = headingRad + math.pi / 2
                     local pitch = -pitchRad
 
@@ -432,15 +404,10 @@ function update(dt)
     end
 end
 
--- ============================================================================
--- DISPOSAL
--- ============================================================================
-
 function dispose()
     Core.log("DST Bridge: Disposing...")
     pcall(function()
         if script_handle then
-            -- Tell the GameLink agent to clean up (detach observers / hooks)
             pcall(function()
                 Gamelink.send(script_handle, { type = "shutdown" })
             end)

@@ -1,13 +1,6 @@
--- bedrock_tracker.lua — GameLink agent for Minecraft Bedrock Edition
--- Discovers camera position in the executable's .data section.
--- Compliant with flat read-only security model (memory reads only).
---
--- Discovery pipeline:
---   1. Structural scan: find Vec3 + unit forward vector with zero padding
---   2. Liveness check: re-read candidates after delay — real camera updates each frame
---   3. Tiebreak by position magnitude
---
--- Once cached, works at any position/orientation (only validates unit vector).
+-- GameLink agent for Minecraft Bedrock Edition. Discovers the camera in .data
+-- via structural scan → liveness check (real camera updates each frame) →
+-- magnitude tiebreak. Read-only; cached offset skips discovery next run.
 
 local mc = process.find_module("Minecraft.Windows.exe")
 local BASE = mc.base
@@ -72,14 +65,13 @@ local function discover_position(cached_offset)
             total_bytes = total_bytes + r.size
         end
     end
-    -- Scan larger sections first (camera tends to be in the main .data section)
+    -- Camera tends to live in the main .data section, so scan largest first
     table.sort(data_ranges, function(a, b) return a.size > b.size end)
 
     local total_kb = total_bytes // 1024
     log(string.format("Scanning %d .data sections (%d KB)", #data_ranges, total_kb))
     send({ type = "progress", message = string.format("Scanning %d KB of static data...", total_kb), percent = 10 })
 
-    -- Phase 1: Structural scan — find all candidates
     local candidates = {}
     local scanned_bytes = 0
 
@@ -135,8 +127,7 @@ local function discover_position(cached_offset)
         return nil, "No camera found. Ensure you are in a game world, and try moving your mouse slightly."
     end
 
-    -- Phase 2: Liveness check — the real camera updates every frame.
-    -- Wait at least 300ms then re-read. Static data won't change.
+    -- Liveness check: real camera updates every frame, static data doesn't
     send({ type = "progress", message = string.format("Verifying %d candidates...", #candidates), percent = 82 })
 
     local wait_start = clock()
@@ -158,14 +149,13 @@ local function discover_position(cached_offset)
     send({ type = "progress",
         message = string.format("%d live candidates found", #live), percent = 90 })
 
-    -- Use live candidates if any, otherwise fall back to all candidates
-    -- (player might be perfectly still — live check can't distinguish)
+    -- Fall back to all candidates if none moved — player might be standing still
     local pool = #live > 0 and live or candidates
     if #live == 0 then
         log("No live candidates (player still?), using magnitude tiebreaker on all candidates")
     end
 
-    -- Tiebreak: largest position magnitude
+    -- Prefer the farthest-from-origin candidate (0,0,0 is often zero-init noise)
     local best = pool[1]
     for _, c in ipairs(pool) do
         if (math.abs(c.x) + math.abs(c.z)) > (math.abs(best.x) + math.abs(best.z)) then
@@ -204,7 +194,6 @@ local function handle_tick()
     if fx then
         local fmag = math.sqrt(fx*fx + fy*fy + fz*fz)
         if math.abs(x) < 100000 and math.abs(z) < 100000 and fmag > 0.5 then
-            -- Read dimension ID from fixed offset before camera
             local ok, dim = pcall(memory.read_s32, pos_addr + DIM_OFFSET)
             local dimension = (ok and dim >= 0 and dim <= 2) and dim or 0
             send({ type = "data", posX = x, posY = y, posZ = z,

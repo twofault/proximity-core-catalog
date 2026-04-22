@@ -1,30 +1,18 @@
--- ue_engine.lua -- Unreal Engine Runtime Introspection Library for GameLink Lua
+-- ue_engine.lua -- Unreal Engine runtime introspection for Frida Lua.
+-- Supports UE 4.11 through current UE5.
 --
--- Lua translation of ue_engine.js. A comprehensive library for runtime
--- discovery and interaction with Unreal Engine structures.
--- Supports UE 4.11 through the latest UE5 releases.
---
--- Version support matrix:
+-- Version matrix:
 --   GObjects:   FFixedUObjectArray (UE 4.11-4.20), FChunkedFixedUObjectArray (UE 4.21+)
 --   GNames:     TNameEntryArray (UE < 4.23), FNamePool (UE 4.23+)
 --   Properties: UProperty/UField (UE < 4.25), FProperty/FField (UE 4.25+)
 --   Vectors:    float (UE4, early UE5), double/LWC (UE 5.0+)
 --   FName:      4-byte (UE 5.6+), 8-byte (standard), 12-byte (case-preserving)
 --
--- Architecture:
---   Host bridge sends {type="init"} (fresh discovery) or {type="init", offsets={...}} (cached).
---   Agent sends back {type="discovery-complete", offsets={...}} and
---   {type="init-response", success=true}, then responds to {type="tick"} with position data.
+-- Protocol: host sends {type="init"} (fresh discovery) or {type="init", offsets={...}}
+-- (cached); agent replies with {type="discovery-complete", offsets={...}} and
+-- {type="init-response", success=true}, then streams position on {type="tick"}.
 --
 -- Preamble auto-injects: json.encode/decode, Pointer, Vec3, Struct, Module, clock(), sendTagged()
-
--- ============================================================================
--- TIER 1 -- SAFE: Read-only memory access and core structure discovery
--- ============================================================================
-
--- ----------------------------------------------------------------------------
--- SECTION 1: CONSTANTS & LAYOUT TABLES
--- ----------------------------------------------------------------------------
 
 local PTR_SIZE = process.get_pointer_size()
 
@@ -53,7 +41,6 @@ local FNAME_HEADER_FORMATS = {
     { shift = 1, lenMask = 0x7FFF, name = "Legacy" },
 }
 
--- Well-known property type names for classification
 local PROPERTY_CATEGORIES = {
     NUMERIC   = { "ByteProperty", "Int8Property", "Int16Property", "IntProperty",
                   "Int64Property", "UInt16Property", "UInt32Property", "UInt64Property",
@@ -70,10 +57,6 @@ local PROPERTY_CATEGORIES = {
     ENUM      = { "EnumProperty" },
     OTHER     = { "FieldPathProperty", "ObjectPtrProperty" },
 }
-
--- ----------------------------------------------------------------------------
--- SECTION 2: MEMORY UTILITIES
--- ----------------------------------------------------------------------------
 
 local function is_null(p)
     return p == nil or p == 0
@@ -136,11 +119,10 @@ function MemUtil.readBytes(addr, len)
     return memory.read_bytes(addr, len)
 end
 
--- Check if a pointer is valid (non-null, canonical on x64)
+-- Non-null + canonical address check on x64 (high bits must be all-0 or all-1).
 function MemUtil.isValidPtr(p)
     if is_null(p) then return false end
     if PTR_SIZE == 8 then
-        -- Check high bits for canonical address
         local hi = (p >> 47) & 0x1FFFF
         return hi == 0 or hi == 0x1FFFF
     end
@@ -153,7 +135,6 @@ function MemUtil.isReadable(addr)
     return val ~= nil
 end
 
--- Find RW data sections within a module
 function MemUtil.findDataSections(mod)
     local modBase = mod.base
     local modEnd = modBase + mod.size
@@ -172,7 +153,7 @@ function MemUtil.isInModule(addr, mod)
     return addr >= mod.base and addr < (mod.base + mod.size)
 end
 
--- Read a TArray<T> header: { data, count, max }
+-- TArray<T> header: { data, count, max }
 function MemUtil.readTArray(addr)
     if is_null(addr) then return nil end
     local data = MemUtil.readPtr(addr)
@@ -184,28 +165,23 @@ function MemUtil.readTArray(addr)
     return { data = data, count = count, max = maxVal }
 end
 
--- Read an FString (TArray<TCHAR>) as a string
+-- FString is a TArray<TCHAR> with a trailing null — count includes the null.
 function MemUtil.readFString(addr)
     local arr = MemUtil.readTArray(addr)
     if not arr or arr.count <= 0 then return "" end
     return MemUtil.readUtf16(arr.data, arr.count - 1) or ""
 end
 
--- Busy-wait sleep
 function MemUtil.sleep(ms)
     local until_time = clock() + (ms / 1000.0)
     while clock() < until_time do end
 end
 
--- ----------------------------------------------------------------------------
--- SECTION 3: GOBJECTS DISCOVERY
--- ----------------------------------------------------------------------------
-
 local GObjectsScanner = {
     result = nil,
 }
 
--- Discover GObjects array. Tries chunked (4.21+) then fixed (pre-4.21).
+-- Tries FChunkedFixedUObjectArray (4.21+) then FFixedUObjectArray (pre-4.21).
 function GObjectsScanner.discover(self, mod)
     local dataSections = MemUtil.findDataSections(mod)
     if #dataSections == 0 then
@@ -216,14 +192,13 @@ function GObjectsScanner.discover(self, mod)
     log("GObjects: " .. #dataSections .. " data sections, module=" .. tostring(mod.name)
         .. " base=0x" .. string.format("%X", mod.base) .. " size=0x" .. string.format("%X", mod.size))
 
-    -- Heartbeat counter: send progress every N iterations to prevent data timeout
-    local heartbeat_interval = 2000  -- send heartbeat every 2000 iterations to prevent data timeout
+    -- Heartbeat every N iterations — the manager times out without periodic data.
+    local heartbeat_interval = 2000
     local scan_count = 0
 
-    -- Try FChunkedFixedUObjectArray first (more validation points, fewer false positives)
+    -- FChunkedFixedUObjectArray first: more validation points, fewer false positives.
     for si = 1, #dataSections do
         local section = dataSections[si]
-        -- Skip sections too small to contain the structure
         if section.size < 0x30 then goto next_chunked_section end
         local scanSize = math.min(section.size, 0x2000000)
         local endAddr = section.base + scanSize - 0x30
@@ -258,7 +233,7 @@ function GObjectsScanner.discover(self, mod)
         ::next_chunked_section::
     end
 
-    -- Fallback: try FFixedUObjectArray (UE 4.11 -- 4.20)
+    -- FFixedUObjectArray fallback (UE 4.11 – 4.20).
     self:_log("scanning", "Trying FFixedUObjectArray (pre-4.21)...")
     log("GObjects: Trying FFixedUObjectArray fallback...")
     scan_count = 0
@@ -294,7 +269,6 @@ function GObjectsScanner.discover(self, mod)
     return false
 end
 
--- Validate FChunkedFixedUObjectArray candidate
 function GObjectsScanner._validateChunked(self, base, layout)
     local objectsPtr = MemUtil.readPtr(base + layout.objects)
     if not MemUtil.isValidPtr(objectsPtr) then return nil end
@@ -321,7 +295,6 @@ function GObjectsScanner._validateChunked(self, base, layout)
     local firstChunk = MemUtil.readPtr(objectsPtr)
     if not MemUtil.isValidPtr(firstChunk) then return nil end
 
-    -- Verify all chunk pointers are valid
     local ci = 1
     while ci < numCh and ci < 20 do
         local chk = MemUtil.readPtr(objectsPtr + ci * PTR_SIZE)
@@ -351,11 +324,11 @@ function GObjectsScanner._validateChunked(self, base, layout)
     }
 end
 
--- Validate FFixedUObjectArray candidate (UE 4.11 -- 4.20)
+-- FFixedUObjectArray candidate validation (UE 4.11 – 4.20).
 function GObjectsScanner._validateFixed(self, base, layout, mod)
     local objectsPtr = MemUtil.readPtr(base + layout.objectsOff)
     if not MemUtil.isValidPtr(objectsPtr) then return nil end
-    -- Objects array should be in heap, not in module
+    -- Objects array lives on the heap, never in-module.
     if MemUtil.isInModule(objectsPtr, mod) then return nil end
 
     local maxObjects = MemUtil.readS32(base + layout.maxOff)
@@ -368,7 +341,7 @@ function GObjectsScanner._validateFixed(self, base, layout, mod)
     local itemSize = self:_detectItemSize(objectsPtr)
     if itemSize == 0 then return nil end
 
-    -- Validate several objects have valid VTables
+    -- At least half of the first 30 slots should have valid VTables.
     local validCount = 0
     for i = 0, 29 do
         local obj = MemUtil.readPtr(objectsPtr + i * itemSize)
@@ -380,7 +353,7 @@ function GObjectsScanner._validateFixed(self, base, layout, mod)
     end
     if validCount < 15 then return nil end
 
-    -- Verify distinct objects (not all the same pointer)
+    -- Sanity: distinct objects, not the same pointer repeated.
     local obj0 = MemUtil.readPtr(objectsPtr)
     local obj10 = MemUtil.readPtr(objectsPtr + 10 * itemSize)
     if obj0 and obj10 and obj0 == obj10 then return nil end
@@ -396,7 +369,7 @@ function GObjectsScanner._validateFixed(self, base, layout, mod)
     }
 end
 
--- Detect FUObjectItem stride by checking consecutive valid object pointers
+-- FUObjectItem stride via consecutive valid object-pointer check.
 function GObjectsScanner._detectItemSize(self, arrayBase)
     for si = 1, #ITEM_SIZES_TO_TRY do
         local size = ITEM_SIZES_TO_TRY[si]
@@ -416,7 +389,6 @@ function GObjectsScanner._detectItemSize(self, arrayBase)
     return 0
 end
 
--- Get a UObject pointer by GObjects index
 function GObjectsScanner.getByIndex(self, index)
     if not self.result then return nil end
     local r = self.result
@@ -430,7 +402,7 @@ function GObjectsScanner.getByIndex(self, index)
         local obj = MemUtil.readPtr(chunkPtr + inChunk * r.itemSize)
         if MemUtil.isValidPtr(obj) then return obj else return nil end
     else
-        -- Fixed (flat) array: direct indexing
+        -- Fixed (flat) array: direct indexing.
         if index >= r.numElements then return nil end
         local obj = MemUtil.readPtr(r.objectsPtr + index * r.itemSize)
         if MemUtil.isValidPtr(obj) then return obj else return nil end
@@ -446,15 +418,11 @@ function GObjectsScanner._log(self, status, detail)
     send({ type = "ue-engine-progress", phase = "gobjects", status = status, detail = detail })
 end
 
--- ----------------------------------------------------------------------------
--- SECTION 4: GNAMES DISCOVERY
--- ----------------------------------------------------------------------------
-
 local GNamesScanner = {
     result = nil,
 }
 
--- Discover GNames. Tries FNamePool (4.23+) then TNameEntryArray (older).
+-- Tries FNamePool (4.23+) then TNameEntryArray (older).
 function GNamesScanner.discover(self, mod)
     send({ type = "ue-engine-progress", phase = "gnames", status = "scanning" })
 
@@ -480,7 +448,6 @@ function GNamesScanner._discoverFNamePool(self, mod)
     local scan_count = 0
     for si = 1, #dataSections do
         local section = dataSections[si]
-        -- Skip sections too small to contain FNamePool
         if section.size < 0x20 then goto next_fnamepool_section end
         local scanSize = math.min(section.size, 0x2000000)
         local endAddr = section.base + scanSize - 0x100
@@ -522,7 +489,7 @@ function GNamesScanner._validateFNamePool(self, addr, mod)
     if not MemUtil.isValidPtr(block0) then return nil end
     if MemUtil.isInModule(block0, mod) then return nil end
 
-    -- Verify block pointers match CurrentBlock + 1
+    -- Non-null block-pointer count should equal CurrentBlock + 1.
     local nonNullCount = 0
     local i = 0
     while i <= currentBlock + 2 and i < 512 do
@@ -536,7 +503,7 @@ function GNamesScanner._validateFNamePool(self, addr, mod)
     end
     if nonNullCount ~= currentBlock + 1 then return nil end
 
-    -- Verify blocks after CurrentBlock+1 are null
+    -- Slots past CurrentBlock+1 should be null (allow one stale slot).
     local afterBlock = MemUtil.readPtr(addr + 0x10 + (currentBlock + 1) * PTR_SIZE)
     if afterBlock ~= nil and not is_null(afterBlock) then
         local extraBlock = MemUtil.readPtr(addr + 0x10 + (currentBlock + 2) * PTR_SIZE)
@@ -570,9 +537,8 @@ function GNamesScanner._detectPoolHeaderFormat(self, block0)
         if len == 4 and wide == 0 then
             local name = MemUtil.readCStr(block0 + 2, 4)
             if name == "None" then
-                -- Verify next entry
                 local entrySize = 2 + 4 -- header(2) + "None"(4) = 6
-                entrySize = (entrySize + 1) & ~1 -- Align to stride 2
+                entrySize = (entrySize + 1) & ~1 -- stride-2 alignment
                 local nextHeader = MemUtil.readU16(block0 + entrySize)
                 if nextHeader ~= nil then
                     local nextLen = (nextHeader >> fmt.shift) & fmt.lenMask
@@ -597,7 +563,6 @@ function GNamesScanner._discoverTNameEntryArray(self, mod)
     local scan_count = 0
     for si = 1, #dataSections do
         local section = dataSections[si]
-        -- Skip sections too small to contain TNameEntryArray
         if section.size < 0x20 then goto next_tnameentry_section end
         local scanSize = math.min(section.size, 0x2000000)
         local endAddr = section.base + scanSize - 0x100
@@ -624,16 +589,16 @@ function GNamesScanner._discoverTNameEntryArray(self, mod)
 end
 
 function GNamesScanner._validateTNameEntryArray(self, addr, mod)
-    -- TNameEntryArray: array of chunk pointers -> each chunk is pointer array -> FNameEntry
+    -- Layout: chunk-pointer array → each chunk is a pointer array → FNameEntry.
     local chunk0Ptr = MemUtil.readPtr(addr)
     if not MemUtil.isValidPtr(chunk0Ptr) then return nil end
     if MemUtil.isInModule(chunk0Ptr, mod) then return nil end
 
-    -- Entry[0] should point to FNameEntry containing "None"
+    -- Entry[0] is always FNameEntry("None").
     local entry0Ptr = MemUtil.readPtr(chunk0Ptr)
     if not MemUtil.isValidPtr(entry0Ptr) then return nil end
 
-    -- Detect string offset by scanning for "None"
+    -- Find string offset by scanning for "None".
     local stringOffset = -1
     local off = 0
     while off <= 0x18 do
@@ -643,13 +608,12 @@ function GNamesScanner._validateTNameEntryArray(self, addr, mod)
     end
     if stringOffset < 0 then return nil end
 
-    -- Verify entry[1] has a valid name
     local entry1Ptr = MemUtil.readPtr(chunk0Ptr + PTR_SIZE)
     if not MemUtil.isValidPtr(entry1Ptr) then return nil end
     local name1 = MemUtil.readCStr(entry1Ptr + stringOffset, 64)
     if not name1 or not name1:match("^[%a_]") then return nil end
 
-    -- Detect index offset in FNameEntry (index has bIsWide in bit 0)
+    -- FNameEntry stores index with bIsWide in bit 0; actual index = val >> 1.
     local indexOffset = -1
     local entry3Ptr = MemUtil.readPtr(chunk0Ptr + 3 * PTR_SIZE)
     local entry8Ptr = MemUtil.readPtr(chunk0Ptr + 8 * PTR_SIZE)
@@ -660,7 +624,6 @@ function GNamesScanner._validateTNameEntryArray(self, addr, mod)
                 local val3 = MemUtil.readU32(entry3Ptr + ioff)
                 local val8 = MemUtil.readU32(entry8Ptr + ioff)
                 if val3 ~= nil and val8 ~= nil then
-                    -- lowest bit = bIsWide, actual index = val >> 1
                     if (val3 >> 1) == 3 and (val8 >> 1) == 8 then
                         indexOffset = ioff
                         break
@@ -671,7 +634,6 @@ function GNamesScanner._validateTNameEntryArray(self, addr, mod)
         end
     end
 
-    -- Count valid chunk pointers to find NumChunks
     local numChunks = 0
     for ci = 0, 199 do
         local chk = MemUtil.readPtr(addr + ci * PTR_SIZE)
@@ -681,16 +643,16 @@ function GNamesScanner._validateTNameEntryArray(self, addr, mod)
     end
     if numChunks < 1 then return nil end
 
-    -- Try to read NumElements/NumChunks metadata after the chunk pointers
+    -- Some builds store NumElements/NumChunks right after the chunk pointers.
     local metaAddr = addr + numChunks * PTR_SIZE
     local numElements = MemUtil.readS32(metaAddr)
     local numChunksStored = MemUtil.readS32(metaAddr + 4)
 
     if numChunksStored ~= nil and numChunksStored == numChunks
         and numElements ~= nil and numElements > 0 and numElements < 0x400000 then
-        -- Metadata matches -- use it
+        -- metadata matches, use it
     else
-        numElements = numChunks * 0x4000 -- Estimate
+        numElements = numChunks * 0x4000 -- estimate
     end
 
     return {
@@ -704,10 +666,6 @@ function GNamesScanner._validateTNameEntryArray(self, addr, mod)
         blockOffsetBits = 0,
     }
 end
-
--- ----------------------------------------------------------------------------
--- SECTION 5: NAME RESOLVER
--- ----------------------------------------------------------------------------
 
 local NameResolver = {}
 
@@ -730,7 +688,7 @@ function NameResolver._resolveFromPool(self, compIdx, gn)
     local blockPtr = MemUtil.readPtr(gn.blocksAddr + blockIdx * PTR_SIZE)
     if not MemUtil.isValidPtr(blockPtr) then return nil end
 
-    -- FNameEntryAllocator stores offsets in stride units (stride = 2)
+    -- FNameEntryAllocator offsets are in stride units (stride = 2).
     local entry = blockPtr + offsetInBlock * 2
     local header = MemUtil.readU16(entry)
     if header == nil then return nil end
@@ -756,7 +714,6 @@ function NameResolver._resolveFromArray(self, compIdx, gn)
     local entryPtr = MemUtil.readPtr(chunkPtr + inChunk * PTR_SIZE)
     if not MemUtil.isValidPtr(entryPtr) then return nil end
 
-    -- Check wide flag if index offset was detected
     if gn.indexOffset >= 0 then
         local indexVal = MemUtil.readU32(entryPtr + gn.indexOffset)
         if indexVal ~= nil and (indexVal & 1) ~= 0 then
@@ -767,11 +724,7 @@ function NameResolver._resolveFromArray(self, compIdx, gn)
     return MemUtil.readCStr(entryPtr + gn.stringOffset, 256)
 end
 
--- ----------------------------------------------------------------------------
--- SECTION 6: UOBJECT LAYOUT BOOTSTRAP
--- ----------------------------------------------------------------------------
-
--- Forward declaration for ObjectFinder (needed by UObjectLayout and ReflectionWalker)
+-- Forward declaration — ObjectFinder is defined later but referenced here.
 local ObjectFinder
 
 local UObjectLayout = {
@@ -826,8 +779,6 @@ function UObjectLayout.bootstrap(self)
               .. " Sz=" .. offsets.nameSize })
     return true
 end
-
--- Public readers
 
 function UObjectLayout.readNameCompIdx(self, objAddr)
     if not self.offsets then return nil end
@@ -884,8 +835,6 @@ function UObjectLayout.getClassName(self, objAddr)
     if not cls then return nil end
     return self:getObjectName(cls)
 end
-
--- Private discovery
 
 function UObjectLayout._findIndexOffset(self, objA, idxA, objB, idxB)
     local off = 0
@@ -965,7 +914,7 @@ function UObjectLayout._findNameOffset(self, knownOffsets)
                 for ti = 1, #testObjs do
                     local compIdx = MemUtil.readS32(testObjs[ti] + off)
                     if compIdx ~= nil and compIdx >= 0 and compIdx <= 0x4000000 then
-                        if compIdx ~= 0 then -- Skip "None"
+                        if compIdx ~= 0 then -- skip "None"
                             local name = NameResolver:resolve(compIdx)
                             if name and #name > 0 and #name < 256 and name:match("^[%a_]") then
                                 validCount = validCount + 1
@@ -1024,7 +973,7 @@ function UObjectLayout._findOuterOffset(self, knownOffsets)
 end
 
 function UObjectLayout._detectFNameSize(self, offsets)
-    -- Try gap analysis first
+    -- Prefer gap analysis: distance to the next known field.
     local candidates = {}
     local fields = { offsets.outer, offsets.cls, offsets.flags, offsets.index }
     for _, o in ipairs(fields) do
@@ -1038,7 +987,7 @@ function UObjectLayout._detectFNameSize(self, offsets)
         end
     end
 
-    -- Fallback: check if bytes 4-7 (Number field) are usually 0
+    -- Fallback: bytes 4-7 are the Number field; almost always 0 for an 8-byte FName.
     local zeroCount = 0
     for i = 0, 49 do
         local obj = GObjectsScanner:getByIndex(i)
@@ -1048,14 +997,6 @@ function UObjectLayout._detectFNameSize(self, offsets)
     end
     if zeroCount > 40 then return 8 else return 4 end
 end
-
--- ============================================================================
--- TIER 2 -- INSPECTION: Object enumeration and reflection walking
--- ============================================================================
-
--- ----------------------------------------------------------------------------
--- SECTION 7: REFLECTION WALKER
--- ----------------------------------------------------------------------------
 
 local ReflectionWalker = {
     offsets = nil,         -- { superStruct, childProps, children, structSize }
@@ -1079,7 +1020,6 @@ function ReflectionWalker.bootstrap(self)
         return false
     end
 
-    -- Find SuperStruct offset
     local structClass = ObjectFinder:findObjectByName("Struct", "Class")
     local fieldClass = ObjectFinder:findObjectByName("Field", "Class")
     local superStructOff = -1
@@ -1087,7 +1027,7 @@ function ReflectionWalker.bootstrap(self)
         superStructOff = self:_findSuperStructOffset(structClass, fieldClass)
     end
 
-    -- Calibrate using Vector struct (3 props: X, Y, Z)
+    -- Calibrate field offsets using FVector (always exactly 3 props: X, Y, Z).
     local calibration = self:_calibrateWithVector(vectorStruct)
     if not calibration then
         send({ type = "ue-engine-progress", phase = "reflection", status = "error",
@@ -1095,7 +1035,7 @@ function ReflectionWalker.bootstrap(self)
         return false
     end
 
-    -- Find Property::Offset_Internal using Vector X (should be 0)
+    -- FVector.X has Offset_Internal=0, FVector.Y has 4 (float) or 8 (double/LWC).
     local propCalibration = self:_calibratePropertyOffsets(calibration)
     if not propCalibration then
         send({ type = "ue-engine-progress", phase = "reflection", status = "error",
@@ -1135,9 +1075,7 @@ function ReflectionWalker.bootstrap(self)
     return true
 end
 
--- Public property walking
-
--- Get direct properties of a struct (not inherited)
+-- Direct properties only (no inherited).
 function ReflectionWalker.getProperties(self, structAddr)
     if not self.offsets or not self.fieldOffsets then return {} end
     local props = {}
@@ -1162,7 +1100,7 @@ function ReflectionWalker.getProperties(self, structAddr)
     return props
 end
 
--- Get all properties including inherited (walks SuperStruct chain)
+-- Walks SuperStruct chain to include inherited properties.
 function ReflectionWalker.getAllProperties(self, structAddr)
     local allProps = {}
     local current = structAddr
@@ -1178,7 +1116,6 @@ function ReflectionWalker.getAllProperties(self, structAddr)
     return allProps
 end
 
--- Find a specific property offset by name (including inherited)
 function ReflectionWalker.findPropertyOffset(self, structAddr, propName)
     local props = self:getAllProperties(structAddr)
     for i = 1, #props do
@@ -1187,7 +1124,6 @@ function ReflectionWalker.findPropertyOffset(self, structAddr, propName)
     return -1
 end
 
--- Find a property by name, returns full info
 function ReflectionWalker.findProperty(self, structAddr, propName)
     local props = self:getAllProperties(structAddr)
     for i = 1, #props do
@@ -1196,9 +1132,7 @@ function ReflectionWalker.findProperty(self, structAddr, propName)
     return nil
 end
 
--- Function discovery
-
--- Get UFunctions from the Children (UField) linked list
+-- UFunctions hang off the Children (UField) linked list, not ChildProperties.
 function ReflectionWalker.getFunctions(self, structAddr)
     if not self.offsets or self.offsets.children < 0 or self._uFieldNextOffset < 0 then return {} end
     local funcs = {}
@@ -1222,7 +1156,6 @@ function ReflectionWalker.getFunctions(self, structAddr)
     return funcs
 end
 
--- Get all functions including inherited
 function ReflectionWalker.getAllFunctions(self, structAddr)
     local allFuncs = {}
     local current = structAddr
@@ -1238,8 +1171,6 @@ function ReflectionWalker.getAllFunctions(self, structAddr)
     return allFuncs
 end
 
--- Struct utilities
-
 function ReflectionWalker.getStructSize(self, structAddr)
     if not self.offsets or self.offsets.structSize < 0 then return -1 end
     local size = MemUtil.readS32(structAddr + self.offsets.structSize)
@@ -1252,33 +1183,29 @@ function ReflectionWalker.getSuperStruct(self, structAddr)
     return MemUtil.readPtr(structAddr + self.offsets.superStruct)
 end
 
--- Property type resolution
-
+-- FProperty (4.25+) stores the type via FField::Class (FFieldClass*); UProperty
+-- is a UObject and reports its type via its own class name.
 function ReflectionWalker._getPropertyTypeName(self, fieldAddr)
     if self.useFProperty and self._fieldClassOffset >= 0 then
-        -- FProperty: read FField::Class (FFieldClass*) -> FFieldClass::Name
         local fFieldClass = MemUtil.readPtr(fieldAddr + self._fieldClassOffset)
         if not MemUtil.isValidPtr(fFieldClass) then return nil end
-        -- FFieldClass::Name is the first field (FName at offset 0)
+        -- FFieldClass::Name is the first field (FName at offset 0).
         local nameIdx = MemUtil.readS32(fFieldClass)
         return NameResolver:resolve(nameIdx)
     else
-        -- UProperty: it's a UObject -- read its class name
         return UObjectLayout:getClassName(fieldAddr)
     end
 end
 
--- Private discovery
-
 function ReflectionWalker._findSuperStructOffset(self, structClass, fieldClass)
-    -- UStruct::SuperStruct should point from Struct -> Field
+    -- UStruct::SuperStruct should point Struct → Field.
     local off = PTR_SIZE
     while off < 0x100 do
         local candidate = MemUtil.readPtr(structClass + off)
         if candidate and candidate == fieldClass then return off end
         off = off + PTR_SIZE
     end
-    -- Try: Class -> Struct chain
+    -- Fallback: walk Class → Struct chain.
     local classObj = ObjectFinder:findObjectByName("Class", "Class")
     if classObj then
         local off2 = PTR_SIZE
@@ -1291,7 +1218,8 @@ function ReflectionWalker._findSuperStructOffset(self, structClass, fieldClass)
     return -1
 end
 
--- Use Vector struct (exactly 3 props: X, Y, Z) to calibrate field offsets
+-- FVector has exactly 3 properties (X, Y, Z), giving us a clean 3-entry linked
+-- list to calibrate ChildProperties, FField::Next, and FField::Name offsets.
 function ReflectionWalker._calibrateWithVector(self, vectorStruct)
     local cpOff = PTR_SIZE
     while cpOff < 0x100 do
@@ -1299,7 +1227,7 @@ function ReflectionWalker._calibrateWithVector(self, vectorStruct)
         if MemUtil.isValidPtr(firstChild) then
             local childVt = MemUtil.readPtr(firstChild)
             if MemUtil.isValidPtr(childVt) then
-                -- Detect FProperty (FField-based, 4.25+) vs UProperty (UObject-based)
+                -- FProperty (4.25+, FField-based) isn't in GObjects; UProperty is.
                 local isFProperty = true
                 local childIdx = MemUtil.readS32(firstChild + UObjectLayout.offsets.index)
                 if childIdx ~= nil and childIdx >= 0 and childIdx < GObjectsScanner:getNumElements() then
@@ -1307,7 +1235,8 @@ function ReflectionWalker._calibrateWithVector(self, vectorStruct)
                     if objAtIdx and objAtIdx == firstChild then isFProperty = false end
                 end
 
-                -- Scan for Next and Name by finding the X, Y, Z linked list
+                -- Probe each candidate Next offset: valid if it yields exactly a
+                -- 3-link list terminating in null.
                 local nextOff = PTR_SIZE
                 while nextOff < 0x60 do
                     local secondChild = MemUtil.readPtr(firstChild + nextOff)
@@ -1330,7 +1259,6 @@ function ReflectionWalker._calibrateWithVector(self, vectorStruct)
                                         local names = { name1, name2, name3 }
                                         table.sort(names)
                                         if names[1] == "X" and names[2] == "Y" and names[3] == "Z" then
-                                            -- Discover FField::Class offset for property type resolution
                                             local fieldClassOff = -1
                                             if isFProperty then
                                                 fieldClassOff = self:_findFieldClassOffset(
@@ -1365,7 +1293,8 @@ function ReflectionWalker._calibrateWithVector(self, vectorStruct)
     return nil
 end
 
--- Discover FField::Class offset -- all 3 Vector children share the same FFieldClass
+-- All 3 Vector components (X/Y/Z) share the same FFieldClass (FloatProperty or
+-- DoubleProperty for LWC), which gives us a strong signature to lock the offset.
 function ReflectionWalker._findFieldClassOffset(self, child1, child2, child3, nextOff)
     local off = PTR_SIZE
     while off < 0x40 do
@@ -1375,7 +1304,6 @@ function ReflectionWalker._findFieldClassOffset(self, child1, child2, child3, ne
             local fc3 = MemUtil.readPtr(child3 + off)
             if MemUtil.isValidPtr(fc1) and MemUtil.isValidPtr(fc2) and MemUtil.isValidPtr(fc3) then
                 if fc1 == fc2 and fc2 == fc3 then
-                    -- All 3 point to the same FFieldClass -- verify by reading its Name
                     local fcNameIdx = MemUtil.readS32(fc1)
                     if fcNameIdx ~= nil and fcNameIdx > 0 then
                         local fcName = NameResolver:resolve(fcNameIdx)
@@ -1436,7 +1364,8 @@ function ReflectionWalker._findStructSizeOffset(self, vectorStruct, rotatorStruc
     end
 end
 
--- Find UStruct::Children offset (UField linked list, holds UFunctions)
+-- UStruct::Children is a UField linked list holding UFunctions (distinct from
+-- ChildProperties, which holds FProperties on 4.25+).
 function ReflectionWalker._findChildrenOffset(self)
     local testClasses = { "Actor", "PlayerController", "Pawn", "Object" }
     for ti = 1, #testClasses do
@@ -1448,7 +1377,7 @@ function ReflectionWalker._findChildrenOffset(self)
                     if self.offsets.structSize < 0 or off ~= self.offsets.structSize then
                         local child = MemUtil.readPtr(testClass + off)
                         if MemUtil.isValidPtr(child) then
-                            -- Must be a UObject present in GObjects
+                            -- Must be a UObject present in GObjects.
                             local childIdx = MemUtil.readS32(child + UObjectLayout.offsets.index)
                             if childIdx ~= nil and childIdx >= 0
                                 and childIdx < GObjectsScanner:getNumElements() then
@@ -1458,7 +1387,6 @@ function ReflectionWalker._findChildrenOffset(self)
                                     if cls then
                                         local clsName = UObjectLayout:getObjectName(cls)
                                         if clsName == "Function" then
-                                            -- Found Children -- now find UField::Next
                                             local nOff = PTR_SIZE
                                             while nOff < 0x80 do
                                                 if nOff ~= UObjectLayout.offsets.cls
@@ -1480,7 +1408,7 @@ function ReflectionWalker._findChildrenOffset(self)
                                                 end
                                                 nOff = nOff + PTR_SIZE
                                             end
-                                            -- Even without Next, record Children offset
+                                            -- Record Children even if Next wasn't resolved.
                                             self.offsets.children = off
                                             return off
                                         end
@@ -1496,10 +1424,6 @@ function ReflectionWalker._findChildrenOffset(self)
     end
     return -1
 end
-
--- ----------------------------------------------------------------------------
--- SECTION 8: OBJECT FINDER
--- ----------------------------------------------------------------------------
 
 ObjectFinder = {
     _nameCache = nil,
@@ -1522,7 +1446,7 @@ function ObjectFinder.buildNameCache(self)
                 named = named + 1
             end
         end
-        -- Heartbeat every 10K objects
+        -- Heartbeat every 10K objects to keep the manager's data timer happy.
         if i % 10000 == 0 and i > 0 then
             local cache_pct = math.floor(96 + (i / num) * 1)
             send({ type = "progress", message = "Building object cache (" .. math.floor(i/1000) .. "k/" .. math.floor(num/1000) .. "k)...", percent = cache_pct })
@@ -1567,7 +1491,6 @@ function ObjectFinder.findObjectsByClassName(self, className)
     return results
 end
 
--- Enumerate all UClass objects
 function ObjectFinder.enumerateClasses(self)
     local classClass = self:findObjectByName("Class", "Class")
     if not classClass then return {} end
@@ -1586,7 +1509,6 @@ function ObjectFinder.enumerateClasses(self)
     return results
 end
 
--- Enumerate all UScriptStruct objects
 function ObjectFinder.enumerateStructs(self)
     local structClass = self:findObjectByName("ScriptStruct", "Class")
     if not structClass then return {} end
@@ -1605,7 +1527,7 @@ function ObjectFinder.enumerateStructs(self)
     return results
 end
 
--- Check if an object is an instance of a class (walks SuperStruct chain)
+-- Walks SuperStruct chain to check instance-of relation.
 function ObjectFinder.isA(self, objectAddr, className)
     local cls = UObjectLayout:readClass(objectAddr)
     if not cls then return false end
@@ -1620,7 +1542,6 @@ function ObjectFinder.isA(self, objectAddr, className)
     return false
 end
 
--- Get inheritance chain for a class
 function ObjectFinder.getInheritanceChain(self, classAddr)
     local chain = {}
     local current = classAddr
@@ -1636,7 +1557,8 @@ function ObjectFinder.getInheritanceChain(self, classAddr)
     return chain
 end
 
--- Find GWorld pointer in data section
+-- GWorld is a global UWorld*. Find it by locating a live UWorld instance (not
+-- Default__) and then scanning data sections for a pointer to it.
 function ObjectFinder.findGWorld(self, mod)
     log("GWorld: Searching for World class instances...")
     local worldClass = self:findObjectByName("World", "Class")
@@ -1693,7 +1615,8 @@ function ObjectFinder.findGWorld(self, mod)
     if #candidates == 0 then return nil end
     if #candidates == 1 then return candidates[1] - mod.base end
 
-    -- Multiple: prefer stable pointer
+    -- With multiple candidates, re-read after 50ms and keep only pointers that
+    -- stayed on the same UWorld — the true GWorld updates across level changes.
     local activeWorld = MemUtil.readPtr(candidates[1])
     MemUtil.sleep(50)
     local stableCandidates = {}
@@ -1709,10 +1632,6 @@ function ObjectFinder.findGWorld(self, mod)
     table.sort(candidates)
     return candidates[1] - mod.base
 end
-
--- ----------------------------------------------------------------------------
--- SECTION 9: ORCHESTRATOR
--- ----------------------------------------------------------------------------
 
 local Orchestrator = {
     mainModule = nil,
@@ -1738,7 +1657,6 @@ function Orchestrator.initialize(self)
         send({ type = "ue-engine-progress", phase = "modules", status = "found",
             detail = self.mainModule.name .. " @ " .. tostring(self.mainModule.base) })
 
-        -- Phase 1: GObjects (0% - 45%)
         log("Phase 1/4: Discovering GObjects...")
         send({ type = "progress", message = "Discovering GObjects...", percent = 0 })
         if not self:_retry(function()
@@ -1747,7 +1665,6 @@ function Orchestrator.initialize(self)
             error("GObjects not found")
         end
 
-        -- Phase 2: GNames (45% - 75%)
         log("Phase 2/4: Discovering GNames...")
         send({ type = "progress", message = "Discovering GNames...", percent = 48 })
         if not self:_retry(function()
@@ -1756,7 +1673,6 @@ function Orchestrator.initialize(self)
             error("GNames not found")
         end
 
-        -- Phase 3: UObject bootstrap (75% - 80%)
         log("Phase 3/4: Bootstrapping UObject layout...")
         send({ type = "progress", message = "Bootstrapping UObject layout...", percent = 94 })
         if not self:_retry(function()
@@ -1767,7 +1683,6 @@ function Orchestrator.initialize(self)
 
         self:_adjustBlockOffsetBits()
 
-        -- Phase 4: Reflection (80% - 82%)
         log("Phase 4/4: Bootstrapping reflection...")
         send({ type = "progress", message = "Walking reflection...", percent = 95 })
         if not self:_retry(function()
@@ -1870,21 +1785,13 @@ function Orchestrator._buildDiscoveryState(self)
     }
 end
 
--- ============================================================================
--- TIER 4 -- APPLICATION: Game-specific usage built on the engine library
--- ============================================================================
-
--- ----------------------------------------------------------------------------
--- SECTION 10: TRACKER CONFIG (Player Position / Camera)
--- Builds a config object for real-time player position/rotation/camera
--- tracking, compatible with unreal_tracker.lua's init handler.
--- ----------------------------------------------------------------------------
+-- Builds the offset table the host caches: GWorld + the full pointer chain
+-- down to RootComponent + position/rotation/camera offsets.
 
 local TrackerConfig = {}
 
 function TrackerConfig.build(self, mod)
     send({ type = "ue-engine-progress", phase = "config", status = "building" })
-    -- Resolving offsets: 87% - 95%
     send({ type = "progress", message = "Resolving offsets...", percent = 97 })
 
     local config = {
@@ -1894,7 +1801,6 @@ function TrackerConfig.build(self, mod)
     }
     local vecSize = ReflectionWalker.vectorComponentSize
 
-    -- GWorld
     local gworldOffset = ObjectFinder:findGWorld(mod)
     if gworldOffset == nil then
         send({ type = "ue-engine-progress", phase = "config", status = "error",
@@ -1903,7 +1809,7 @@ function TrackerConfig.build(self, mod)
     end
     config.offsets.GWorld = { offset = gworldOffset, type = "vtQword" }
 
-    -- Property chain: World -> GameInstance -> LocalPlayers -> Controller -> Pawn -> Root
+    -- Pointer chain: World → GameInstance → LocalPlayers → Controller → Pawn → RootComponent
     local lookups = {
         { key = "OwningGameInstance", cls = "World", prop = "OwningGameInstance" },
         { key = "LocalPlayers", cls = "GameInstance", prop = "LocalPlayers" },
@@ -1923,7 +1829,7 @@ function TrackerConfig.build(self, mod)
     end
     config.offsets.LocalPlayer = { offset = 0x0, type = "vtQword" }
 
-    -- Position: USceneComponent::RelativeLocation
+    -- USceneComponent::RelativeLocation — body position in world units.
     local relLocOff = self:_resolvePropertyOffset("SceneComponent", "RelativeLocation")
     if relLocOff >= 0 then
         local vtype = ReflectionWalker.vectorPrecision
@@ -1932,7 +1838,7 @@ function TrackerConfig.build(self, mod)
         config.offsets.Z = { offset = relLocOff + vecSize * 2, type = vtype }
     end
 
-    -- Rotation: USceneComponent::RelativeRotation
+    -- USceneComponent::RelativeRotation — body rotation (pitch/yaw/roll).
     local relRotOff = self:_resolvePropertyOffset("SceneComponent", "RelativeRotation")
     if relRotOff >= 0 then
         local vtype = ReflectionWalker.vectorPrecision
@@ -1941,7 +1847,7 @@ function TrackerConfig.build(self, mod)
         config.offsets.RotZ = { offset = relRotOff + vecSize * 2, type = vtype }
     end
 
-    -- Camera: AController::ControlRotation
+    -- AController::ControlRotation — camera/aim rotation, decoupled from body.
     local ctrlRotOff = self:_resolvePropertyOffset("Controller", "ControlRotation")
     if ctrlRotOff >= 0 then
         local vtype = ReflectionWalker.vectorPrecision
@@ -1970,13 +1876,9 @@ function TrackerConfig._resolvePropertyOffset(self, className, propName)
     return ReflectionWalker:findPropertyOffset(classObj, propName)
 end
 
--- ----------------------------------------------------------------------------
--- SECTION 11: POSITION READER
--- Reads player position/rotation each tick by following the resolved
--- pointer chain from GWorld through to RootComponent coordinates.
--- This was not in the JS version (which used RPC exports); here we
--- integrate it directly for the recv-based pull-tick architecture.
--- ----------------------------------------------------------------------------
+-- Reads position/rotation each tick by walking GWorld → ... → RootComponent.
+-- The JS version exposed this via RPC exports; the Lua port integrates it
+-- directly for the recv-based pull-tick protocol.
 
 local PositionReader = {
     config = nil,
@@ -1991,7 +1893,6 @@ function PositionReader.init(self, cfg)
     self.lastCacheTime = 0
 end
 
--- Resolve the full pointer chain: GWorld -> ... -> RootComponent
 function PositionReader.resolveChain(self)
     if not self.config or not self.config.offsets then return nil end
 
@@ -2009,14 +1910,12 @@ function PositionReader.resolveChain(self)
     local offsets = self.config.offsets
     local resolved = {}
 
-    -- GWorld
     local gwEntry = offsets.GWorld
     if not gwEntry or type(gwEntry.offset) ~= "number" then return nil end
     local gworld = MemUtil.readPtr(mainModule.base + gwEntry.offset)
     if is_null(gworld) then return nil end
     resolved.GWorld = gworld
 
-    -- Helper to read one link in the chain
     local function readLink(name, parentPtr)
         local entry = offsets[name]
         if not entry or type(entry.offset) ~= "number" then return nil end
@@ -2050,14 +1949,13 @@ function PositionReader.resolveChain(self)
     return resolved
 end
 
--- Read a float or double depending on vectorPrecision
+-- Reads float (UE4/early UE5) or double (UE 5.0+ LWC) based on calibration.
 function PositionReader.readValue(self, address, valueType)
     if valueType == "vtQword" then return MemUtil.readPtr(address) end
     if valueType == "vtDouble" then return MemUtil.readF64(address) end
     return MemUtil.readF32(address)
 end
 
--- Read full player state: position, rotation, camera
 function PositionReader.read(self)
     if not self.config or not self.config.offsets then return nil end
 
@@ -2070,7 +1968,6 @@ function PositionReader.read(self)
     local root = addresses.Root
     local pc = addresses.PlayerController
 
-    -- Position
     local posX, posY, posZ
     if offsets.X and offsets.Y and offsets.Z then
         posX = self:readValue(root + offsets.X.offset, vtype)
@@ -2079,7 +1976,6 @@ function PositionReader.read(self)
     end
     if posX == nil or posY == nil or posZ == nil then return nil end
 
-    -- Rotation
     local rotX, rotY, rotZ
     if offsets.RotX and offsets.RotY and offsets.RotZ then
         rotX = self:readValue(root + offsets.RotX.offset, vtype)
@@ -2087,7 +1983,7 @@ function PositionReader.read(self)
         rotZ = self:readValue(root + offsets.RotZ.offset, vtype)
     end
 
-    -- Camera (ControlRotation)
+    -- ControlRotation lives on the controller, not the root component.
     local pitch, yaw
     if not is_null(pc) and offsets.Pitch and offsets.Yaw then
         pitch = self:readValue(pc + offsets.Pitch.offset, vtype)
@@ -2114,30 +2010,22 @@ function PositionReader.read(self)
     }
 end
 
--- ----------------------------------------------------------------------------
--- SECTION 12: MESSAGE HANDLER
--- Ties everything together: receives init/tick/shutdown messages,
--- runs discovery or reads position accordingly.
--- ----------------------------------------------------------------------------
-
 local state = {
     initialized = false,
     config = nil,
     consecutiveErrors = 0,
-    -- No fatal-error on position loss. Process exit is detected by the
-    -- engine; the bridge host script handles the searching-for-player UI.
+    -- Position loss is not fatal: process exit is detected by the engine, and
+    -- the host script owns the searching-for-player UI.
     MAX_CONSECUTIVE_ERRORS = 10,
 }
 
 local function handle_init(data)
-    -- data may contain pre-cached offsets from a previous session
+    -- Cached offsets from a previous session skip discovery entirely.
     if type(data) == "table" and type(data.offsets) == "table" then
-        -- Cached offsets provided -- skip discovery, use them directly
         state.config = data
         PositionReader:init(data)
         state.initialized = true
         state.consecutiveErrors = 0
-        -- state reset on re-init
 
         log("UE Engine (Lua): Using provided offsets, vectorPrecision="
             .. tostring(data.vectorPrecision or "vtFloat"))
@@ -2147,7 +2035,6 @@ local function handle_init(data)
             end
         end
 
-        -- Verify pointer chain works
         local test = PositionReader:resolveChain()
         if not test then
             log("UE Engine (Lua): Pointer chain not ready yet (player may not be spawned)", "warning")
@@ -2159,7 +2046,7 @@ local function handle_init(data)
         return
     end
 
-    -- No cached offsets -- run full discovery
+    -- No cached offsets — run full discovery.
     log("UE Engine (Lua): Running full discovery...")
     local result = Orchestrator:initialize()
     if not result.success then
@@ -2167,14 +2054,13 @@ local function handle_init(data)
         return
     end
 
-    -- Build tracker config
     local config = TrackerConfig:build(Orchestrator.mainModule)
     if not config then
         send({ type = "init-response", success = false, error = "TrackerConfig build failed" })
         return
     end
 
-    -- Send discovery results back so host can cache them
+    -- Host caches these on discovery-complete and feeds them back on relaunch.
     send({
         type = "discovery-complete",
         offsets = config.offsets,
@@ -2195,7 +2081,6 @@ end
 
 local function handle_tick(message)
     if not state.initialized then
-        -- Not initialized yet, send heartbeat to keep connection alive
         send({ type = "heartbeat", status = "not-initialized" })
         return
     end
@@ -2214,28 +2099,21 @@ local function handle_tick(message)
         state.consecutiveErrors = 0
         return
     else
-        -- Position not available yet (player not spawned, loading screen, etc.)
+        -- Pointer chain not ready (player not spawned, loading screen, etc.).
         state.consecutiveErrors = state.consecutiveErrors + 1
     end
 
-    -- Send heartbeat so the host knows we're alive but have no position.
-    -- No fatal-error: the engine detects process exit; we just keep trying.
+    -- Heartbeat keeps the manager's data timer alive while we wait.
     send({ type = "heartbeat", status = "no-position", errors = state.consecutiveErrors })
 end
 
--- ----------------------------------------------------------------------------
--- SECTION 13: BOOT & RECV HANDLER
--- ----------------------------------------------------------------------------
-
--- Send immediate heartbeat to prevent data timeout (manager only resets timer on Data messages)
+-- Immediate heartbeat — the manager's data timer only resets on Data messages,
+-- so we need to send something before logging or any heavy work.
 send({ type = "heartbeat", status = "loading" })
 
-log("==============================================")
-log("  UE Engine - Lua Introspection Library")
-log("  Supports: UE 4.11 - UE 5.x")
-log("==============================================")
+log("UE Engine - Lua Introspection Library")
+log("Supports: UE 4.11 - UE 5.x")
 
--- Send another heartbeat after boot logging
 send({ type = "heartbeat", status = "ready" })
 
 local function try_decode_json(text)
@@ -2279,7 +2157,7 @@ local function extract_init_data(message)
         if type(data) == "table" and type(data.offsets) == "table" then
             return data
         end
-        -- init with no offsets = fresh discovery request
+        -- init with no offsets → fresh discovery request
         return {}
     end
     if type(message) == "string" then

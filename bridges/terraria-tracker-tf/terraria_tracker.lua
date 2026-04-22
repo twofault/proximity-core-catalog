@@ -1,4 +1,4 @@
--- terraria_tracker.lua — Compliant with flat read-only security model
+-- terraria_tracker.lua
 -- Finds Terraria player position via pure memory scanning + reads.
 -- No CLR hosting, no code execution, no disk I/O, no native.call.
 
@@ -17,13 +17,10 @@ local state = {
     elems_base = nil,
     player_mt = nil,
     pos_off = nil,
-    player_idx = 0,    -- Index of the player element we're tracking
+    player_idx = 0,
     rediscover_at = 50,
 }
 
-----------------------------------------------------------------
--- Memory helpers
-----------------------------------------------------------------
 local function rptr(a)
     if not a or a == 0 then return nil end
     local v, e = memory.read_pointer(a)
@@ -40,9 +37,6 @@ local function valid_f(v)
     return v and v == v and v > -1e30 and v < 1e30
 end
 
-----------------------------------------------------------------
--- Position validation
-----------------------------------------------------------------
 local function is_terraria_pos(x, y)
     if not valid_f(x) or not valid_f(y) then return false end
     -- Terraria pixel coords: X typically 1000-134000, Y typically 500-38000
@@ -61,9 +55,6 @@ local function probe_pos(obj)
     return nil
 end
 
-----------------------------------------------------------------
--- Array candidate validation
-----------------------------------------------------------------
 local function validate_candidate(hit)
     local arr_mt = rptr(hit - PTR)
     if not arr_mt then return nil end
@@ -89,7 +80,6 @@ local function validate_candidate(hit)
     if same < 3 or non_null < 3 then return nil end
     if ref_mt == arr_mt then return nil end
 
-    -- Probe non-null elements for Terraria position data
     for i = 0, math.min(19, 255) do
         local elem = rptr(base + i * PTR)
         if elem then
@@ -112,9 +102,6 @@ local function validate_candidate(hit)
     return nil
 end
 
-----------------------------------------------------------------
--- Memory scanning for Player[256]
-----------------------------------------------------------------
 local function discover()
     local ranges = process.enumerate_ranges("rw")
     if not ranges then return nil end
@@ -147,9 +134,6 @@ local function discover()
     return nil
 end
 
-----------------------------------------------------------------
--- Position reading
-----------------------------------------------------------------
 local function read_position()
     local elem = rptr(state.elems_base + state.player_idx * PTR)
     if not elem then return nil, nil end
@@ -160,9 +144,6 @@ local function read_position()
     return x, y
 end
 
-----------------------------------------------------------------
--- Init handler
-----------------------------------------------------------------
 local function handle_init()
     send({ type = "progress", message = "Scanning game memory...", percent = 10 })
 
@@ -193,9 +174,6 @@ local function handle_init()
     send({ type = "init-response", success = true, initialPosition = init_pos })
 end
 
-----------------------------------------------------------------
--- Tick handler
-----------------------------------------------------------------
 local function handle_tick(msg)
     if not state.initialized then
         send({ type = "heartbeat", status = "not-initialized" })
@@ -247,9 +225,6 @@ local function handle_tick(msg)
     send({ type = "heartbeat", status = "no-position" })
 end
 
-----------------------------------------------------------------
--- Message loop
-----------------------------------------------------------------
 send({ type = "heartbeat", status = "loading" })
 log("Terraria Tracker (read-only) loading...")
 

@@ -13,10 +13,6 @@
 --        → "heading" / "distance" fields (Lua numbers)
 --   4. Tick-driven: read position from discovered memory addresses
 
--- ============================================================================
--- SECTION 1: CONSTANTS
--- ============================================================================
-
 local PTR = process.get_pointer_size()
 local IS_X64 = (PTR == 8)
 
@@ -59,22 +55,16 @@ else
     OFF.UDATA_DATA = 20
 end
 
--- Discovery / scanning constants
 local MAX_SCAN_CHUNK = 0x1000
 local MAX_SCAN_MATCHES = 64
 local CALL_SCAN_BYTES = 512
 
--- State machine phases
 local PHASE_IDLE = 0
 local PHASE_FINDING_PCALL = 1
 local PHASE_OBSERVING = 2
 local PHASE_PROBING_STATES = 3
 local PHASE_DISCOVERING = 4
 local PHASE_READY = 5
-
--- ============================================================================
--- SECTION 2: MEMORY UTILITIES
--- ============================================================================
 
 local function rptr(addr)
     if not addr or addr == 0 then return nil end
@@ -119,8 +109,8 @@ local function rbytes(addr, len)
     return ok and v or nil
 end
 
--- Read a Lua 5.1 TValue at address. Returns (type_tag, raw_value).
--- For numbers: raw_value is the double. For gc/ptr types: raw_value is a pointer.
+-- Returns (type_tag, raw_value). For numbers raw_value is a double; for
+-- gc/ptr types it's a pointer.
 local function read_tv(addr)
     if not addr or addr == 0 then return nil, nil end
     local tt = rs32(addr + 8)  -- TValue.tt is always at offset 8 (after Value union)
@@ -136,17 +126,11 @@ local function read_tv(addr)
     end
 end
 
--- ============================================================================
--- SECTION 3: LUA 5.1 TABLE WALKING
--- ============================================================================
-
--- Read a TString's content
 local function read_tstring(ts)
     if not ts then return nil end
     return rutf8(ts + OFF.TSTR_DATA, 256)
 end
 
--- Get globals table pointer from a lua_State
 local function get_globals(L)
     if not L then return nil end
     local tt = rs32(L + OFF.L_GT + 8)
@@ -154,7 +138,6 @@ local function get_globals(L)
     return rptr(L + OFF.L_GT)
 end
 
--- Validate that a pointer looks like a Lua 5.1 Table
 local function validate_table(tbl)
     if not tbl then return false end
     local lsn = ru8(tbl + OFF.TBL_LSIZENODE)
@@ -166,7 +149,6 @@ local function validate_table(tbl)
     return true
 end
 
--- Find a string key in a table's hash part. Returns (tt, value) or (nil, nil).
 local function tbl_get(tbl, key)
     if not validate_table(tbl) then return nil, nil end
     local lsn = ru8(tbl + OFF.TBL_LSIZENODE)
@@ -182,7 +164,7 @@ local function tbl_get(tbl, key)
             if kptr then
                 local s = read_tstring(kptr)
                 if s == key then
-                    return read_tv(n)  -- read value at node+0 (i_val)
+                    return read_tv(n)
                 end
             end
         end
@@ -190,8 +172,7 @@ local function tbl_get(tbl, key)
     return nil, nil
 end
 
--- List all non-nil string keys in a table (for diagnostics). Returns array of
--- {name, val_tt, val_num?} limited to max_keys entries.
+-- List all non-nil string keys in a table (for diagnostics).
 local function tbl_keys(tbl, max_keys)
     local out = {}
     if not validate_table(tbl) then return out end
@@ -223,8 +204,7 @@ local function tbl_keys(tbl, max_keys)
     return out
 end
 
--- Read a number from a table by integer array index (1-based).
--- Array part stores TValues starting at tbl.array.
+-- Read a number from a table's array part by 1-based index.
 local function tbl_array_num(tbl, index)
     if not tbl or index < 1 then return nil end
     local sa = rs32(tbl + OFF.TBL_SIZEARRAY)
@@ -235,10 +215,6 @@ local function tbl_array_num(tbl, index)
     if tt == LUA_TNUMBER then return val end
     return nil
 end
-
--- ============================================================================
--- SECTION 4: FUNCTION DISCOVERY (find lua_pcall address)
--- ============================================================================
 
 local function find_main_module()
     local names = {
@@ -259,12 +235,10 @@ local function module_contains(m, addr)
     return addr >= m.base and addr < (m.base + m.size)
 end
 
--- Find lua C API exports from DLLs or the main exe
 local function scan_exports_for(target_name)
     local dll_names = {
         "lua51.dll", "lua5.1.dll", "lua52.dll", "lua53.dll", "lua54.dll", "lua.dll",
     }
-    -- Also try the main exe
     local main = find_main_module()
     if main then dll_names[#dll_names + 1] = main.name end
 
@@ -277,7 +251,6 @@ local function scan_exports_for(target_name)
     return nil
 end
 
--- Pattern scan helper: find bytes in a module, return list of addresses
 local function scan_module(m, pattern, max_matches)
     local results = {}
     if not m then return results end
@@ -304,21 +277,20 @@ local function scan_module(m, pattern, max_matches)
     return results
 end
 
--- Find string in module (null-terminated)
+-- Find null-terminated string in module.
 local function find_string_in_module(m, str)
     local pattern = string.char(0) .. str .. string.char(0)
     local hits = scan_module(m, pattern, MAX_SCAN_MATCHES)
     local out = {}
     for _, a in ipairs(hits) do out[#out + 1] = a + 1 end  -- skip leading NUL
     if #out == 0 then
-        -- Fallback: string at section start (no leading NUL)
+        -- Fallback for strings at section start (no leading NUL)
         hits = scan_module(m, str .. string.char(0), MAX_SCAN_MATCHES)
         for _, a in ipairs(hits) do out[#out + 1] = a end
     end
     return out
 end
 
--- Build little-endian pointer bytes for a numeric address
 local function ptr_bytes(value)
     local t = {}
     local x = value
@@ -329,12 +301,11 @@ local function ptr_bytes(value)
     return table.concat(t)
 end
 
--- Find pointer references in module
 local function find_ptr_refs(m, ptr_val)
     return scan_module(m, ptr_bytes(ptr_val), MAX_SCAN_MATCHES)
 end
 
--- Find a C function registered via luaL_Reg table for a given name string
+-- Find a C function registered via luaL_Reg table for a given name string.
 local function find_reg_func(m, str_addrs)
     for _, sa in ipairs(str_addrs) do
         local refs = find_ptr_refs(m, sa)
@@ -348,7 +319,7 @@ local function find_reg_func(m, str_addrs)
     return nil
 end
 
--- Extract E8 call targets from function bytes
+-- Extract E8 (near call) target addresses from a function's first max_bytes.
 local function get_call_targets(m, faddr, max_bytes)
     local out = {}
     local bytes = rbytes(faddr, max_bytes or CALL_SCAN_BYTES)
@@ -367,7 +338,6 @@ local function get_call_targets(m, faddr, max_bytes)
     return out
 end
 
--- Master function: find lua_pcall address
 local function find_lua_pcall()
     -- Strategy 1: direct export lookup
     local addr, from = scan_exports_for("lua_pcall")
@@ -414,29 +384,24 @@ local function find_lua_pcall()
     return nil
 end
 
--- ============================================================================
--- SECTION 5: POSITION & CAMERA PROBING
--- ============================================================================
-
 -- Reference position from camera (set during init if camera found)
 local cam_ref_x, cam_ref_z = nil, nil
 
 -- Check if 3 values look like DST world coordinates.
--- DST is isometric: x,z in [-600,600], y typically very close to 0.
+-- DST is isometric: x,z in [-600, 600], y typically very close to 0.
 local function is_coord_triple(v1, v2, v3)
     if not v1 or not v2 or not v3 then return false end
-    -- NaN check
     if v1 ~= v1 or v2 ~= v2 or v3 ~= v3 then return false end
-    -- Reject denormalized/subnormal floats (very common false positive)
+    -- Reject denormalized/subnormal floats (common false positive)
     if math.abs(v1) > 0 and math.abs(v1) < 1e-30 then return false end
     if math.abs(v2) > 0 and math.abs(v2) < 1e-30 then return false end
     if math.abs(v3) > 0 and math.abs(v3) < 1e-30 then return false end
-    -- Range check (DST world is roughly -600..600 on each axis, y near 0)
+    -- DST world bounds: ~-600..600 on x/z, y stays near 0
     if math.abs(v1) > 800 or math.abs(v3) > 800 then return false end
     if math.abs(v2) > 50 then return false end
-    -- At least one horizontal coord must have meaningful magnitude (> 1.0)
+    -- At least one horizontal coord must have meaningful magnitude
     if math.abs(v1) < 1.0 and math.abs(v3) < 1.0 then return false end
-    -- If we have camera reference, position should be within ~100 units of camera
+    -- If we have a camera reference, player should be within ~100 units
     if cam_ref_x and cam_ref_z then
         local dx = math.abs(v1 - cam_ref_x)
         local dz = math.abs(v3 - cam_ref_z)
@@ -445,14 +410,14 @@ local function is_coord_triple(v1, v2, v3)
     return true
 end
 
--- Probe a C++ object for position data (3 consecutive floats or doubles).
--- Tries direct offsets first, then one level of pointer indirection.
+-- Probe a C++ object for 3 consecutive floats or doubles that look like a
+-- position, trying direct offsets first then one level of pointer indirection.
 -- Returns { ptr, offset, elem_size } or nil.
 local function probe_position(base, scan_size)
     if not base then return nil end
     scan_size = scan_size or 1500
 
-    -- Try doubles first (Lua 5.1 uses doubles; engine might match)
+    -- Doubles first (Lua 5.1 uses doubles; engine might match)
     for off = 0, scan_size - 24, 8 do
         local a, b, c = rf64(base + off), rf64(base + off + 8), rf64(base + off + 16)
         if is_coord_triple(a, b, c) then
@@ -460,7 +425,7 @@ local function probe_position(base, scan_size)
         end
     end
 
-    -- Try floats (common in game engines)
+    -- Floats (common in game engines)
     for off = 0, scan_size - 12, 4 do
         local a, b, c = rf32(base + off), rf32(base + off + 4), rf32(base + off + 8)
         if is_coord_triple(a, b, c) then
@@ -472,14 +437,12 @@ local function probe_position(base, scan_size)
     for off = 0, math.min(scan_size, 400) - PTR, PTR do
         local p = rptr(base + off)
         if p then
-            -- Doubles in pointed-to object
             for io = 0, 200 - 24, 8 do
                 local a, b, c = rf64(p + io), rf64(p + io + 8), rf64(p + io + 16)
                 if is_coord_triple(a, b, c) then
                     return { ptr = base, ptr_off = off, offset = io, elem = 8, indirect = true }
                 end
             end
-            -- Floats in pointed-to object
             for io = 0, 200 - 12, 4 do
                 local a, b, c = rf32(p + io), rf32(p + io + 4), rf32(p + io + 8)
                 if is_coord_triple(a, b, c) then
@@ -492,8 +455,6 @@ local function probe_position(base, scan_size)
     return nil
 end
 
--- Read position from a previously-discovered probe result.
--- Returns (x, y, z) or nil.
 local function read_position(probe)
     if not probe then return nil end
     local base = probe.ptr
@@ -510,10 +471,6 @@ local function read_position(probe)
     end
     return nil
 end
-
--- ============================================================================
--- SECTION 6: STATE MACHINE
--- ============================================================================
 
 local state = {
     phase = PHASE_IDLE,
@@ -572,7 +529,6 @@ local function complete_init()
     log("========================================")
 end
 
--- Phase 1: find lua_pcall
 local function do_find_pcall()
     send_progress("Finding Lua runtime...", 10)
     local addr = find_lua_pcall()
@@ -584,7 +540,6 @@ local function do_find_pcall()
     state.phase = PHASE_OBSERVING
 end
 
--- Phase 2: start observing lua_pcall to capture lua_State* pointers
 local function do_start_observe()
     send_progress("Observing Lua calls...", 20)
     local obs, err = native.observe(state.lua_pcall_addr, { count = 5000, max_args = 1 })
@@ -597,7 +552,6 @@ local function do_start_observe()
     log("[+] Observing lua_pcall — waiting for states...")
 end
 
--- Phase 3: collect lua_State* pointers from observer
 local function do_probe_states()
     if not state.observer or not state.observer:is_active() then
         -- Observer exhausted — proceed with whatever states we captured
@@ -607,7 +561,6 @@ local function do_probe_states()
             fail_init("Observer exhausted without capturing any states")
             return
         end
-        -- Have partial captures — try discovering with them
         state.phase = PHASE_DISCOVERING
         return
     end
@@ -647,7 +600,6 @@ end
 local discover_camera
 local discover_position
 
--- Phase 4: walk globals tables to find ThePlayer, TheCamera
 local function do_discover()
     send_progress("Searching for ThePlayer...", 40)
 
@@ -664,7 +616,6 @@ local function do_discover()
         if globals and validate_table(globals) then
             log("[*] State " .. tostring(L) .. " — globals table @ " .. tostring(globals))
 
-            -- Check for ThePlayer
             local ptt, pval = tbl_get(globals, "ThePlayer")
             if ptt == LUA_TTABLE and pval then
                 log("[+] ThePlayer found (table @ " .. tostring(pval) .. ")")
@@ -672,7 +623,6 @@ local function do_discover()
                 state.globals_tbl = globals
                 state.player_tbl = pval
 
-                -- Dump player table keys for diagnostics
                 local keys = tbl_keys(pval, 40)
                 log("[*] ThePlayer has " .. #keys .. " hash entries:")
                 for _, k in ipairs(keys) do
@@ -682,7 +632,6 @@ local function do_discover()
                     log(info)
                 end
 
-                -- Look for TheCamera
                 local ctt, cval = tbl_get(globals, "TheCamera")
                 if ctt == LUA_TTABLE and cval then
                     log("[+] TheCamera found (table @ " .. tostring(cval) .. ")")
@@ -695,13 +644,11 @@ local function do_discover()
                     log("[!] TheCamera not found or nil (tt=" .. tostring(ctt) .. ")")
                 end
 
-                -- Discover camera fields
                 if state.camera_tbl then
                     send_progress("Reading camera data...", 55)
                     discover_camera(state.camera_tbl)
                 end
 
-                -- Discover entity position
                 send_progress("Locating player position...", 65)
                 discover_position(state.player_tbl, state.globals_tbl)
 
@@ -719,13 +666,11 @@ local function do_discover()
         end
     end
 
-    -- ThePlayer not found yet — might be on menu/loading screen
-    -- Keep polling observer and retrying
+    -- ThePlayer not found yet (menu/loading screen?) — keep polling
     state.phase = PHASE_PROBING_STATES
 end
 
 discover_camera = function(cam_tbl)
-    -- Dump camera table for diagnostics
     local keys = tbl_keys(cam_tbl, 40)
     log("[*] TheCamera has " .. #keys .. " hash entries:")
     for _, k in ipairs(keys) do
@@ -734,43 +679,35 @@ discover_camera = function(cam_tbl)
         log(info)
     end
 
-    -- Look for heading
     local htt, hval = tbl_get(cam_tbl, "heading")
     if htt == LUA_TNUMBER then
-        -- heading found
         log("[+] Camera heading = " .. string.format("%.2f", hval))
     else
-        -- Try headingtarget, targetheading
         htt, hval = tbl_get(cam_tbl, "headingtarget")
         if htt == LUA_TNUMBER then
-            -- heading found
             log("[+] Camera headingtarget = " .. string.format("%.2f", hval))
         end
     end
 
-    -- Look for distance
     local dtt, dval = tbl_get(cam_tbl, "distance")
     if dtt == LUA_TNUMBER then
-        -- distance found
         log("[+] Camera distance = " .. string.format("%.2f", dval))
     else
         dtt, dval = tbl_get(cam_tbl, "distancetarget")
         if dtt == LUA_TNUMBER then
-            -- distance found
             log("[+] Camera distancetarget = " .. string.format("%.2f", dval))
         end
     end
 
-    -- Look for camera position (some camera implementations store it)
     local xtt, xval = tbl_get(cam_tbl, "currentpos")
     if xtt == LUA_TTABLE then
-        -- currentpos might be a {x=N, y=N, z=N} table
+        -- currentpos is a {x=N, y=N, z=N} table in some camera implementations
         local cx_tt, cx = tbl_get(xval, "x")
         local cy_tt, cy = tbl_get(xval, "y")
         local cz_tt, cz = tbl_get(xval, "z")
         if cx_tt == LUA_TNUMBER and cy_tt == LUA_TNUMBER and cz_tt == LUA_TNUMBER then
             state.has_camera_position = true
-            -- Set reference for position probing (player should be near camera)
+            -- Player should be near camera — use this to reject bogus probes
             cam_ref_x = cx
             cam_ref_z = cz
             log("[+] Camera 3D position: " .. string.format("%.2f, %.2f, %.2f", cx, cy, cz))
@@ -782,7 +719,9 @@ discover_position = function(player_tbl, globals_tbl)
     log("[*] Position probing with cam_ref: " ..
         (cam_ref_x and string.format("(%.1f, %.1f)", cam_ref_x, cam_ref_z) or "none"))
 
-    -- Strategy 1: Look for "entity" lightuserdata in ThePlayer table
+    -- Strategy 1: ThePlayer.entity (lightuserdata) points at the C++ Entity.
+    -- The heap position field on some Entity shapes is stale (written once, not
+    -- updated per-tick), so probe_position scans for a live-looking triple.
     local ett, eval = tbl_get(player_tbl, "entity")
     if ett == LUA_TLIGHTUSERDATA and eval then
         log("[+] ThePlayer.entity (lightuserdata) @ " .. tostring(eval))
@@ -800,8 +739,8 @@ discover_position = function(player_tbl, globals_tbl)
         end
     elseif ett == LUA_TUSERDATA and eval then
         log("[+] ThePlayer.entity (userdata) @ " .. tostring(eval))
-        -- Full userdata: read the C++ pointer from userdata payload area
-        -- Try multiple payload offsets since UDATA_DATA depends on exact Lua build
+        -- Full userdata: the C++ pointer lives in the userdata payload area.
+        -- Try multiple offsets since UDATA_DATA depends on exact Lua build.
         for _, data_off in ipairs({OFF.UDATA_DATA, OFF.UDATA_DATA - 8, OFF.UDATA_DATA + 8, 16, 24, 32}) do
             local cpp_ptr = rptr(eval + data_off)
             if cpp_ptr then
@@ -818,7 +757,7 @@ discover_position = function(player_tbl, globals_tbl)
                 end
             end
         end
-        -- Also try reading entity userdata itself as a direct C++ object
+        -- Fall back to reading the userdata as a direct C++ object
         local probe = probe_position(eval, 2000)
         if probe then
             local x, y, z = read_position(probe)
@@ -833,7 +772,7 @@ discover_position = function(player_tbl, globals_tbl)
         log("[!] ThePlayer.entity not found (tt=" .. tostring(ett) .. ")")
     end
 
-    -- Strategy 2: Look for "Transform" in player table (might be cached)
+    -- Strategy 2: ThePlayer.Transform (sometimes cached here instead)
     local ttt, tval = tbl_get(player_tbl, "Transform")
     if ttt == LUA_TUSERDATA and tval then
         log("[+] ThePlayer.Transform (userdata) @ " .. tostring(tval))
@@ -856,7 +795,7 @@ discover_position = function(player_tbl, globals_tbl)
         end
     end
 
-    -- Strategy 3: Scan ALL lightuserdata/userdata fields in ThePlayer
+    -- Strategy 3: scan every lightuserdata/userdata field in ThePlayer
     log("[*] Scanning all lightuserdata/userdata fields in ThePlayer...")
     local lsn = ru8(player_tbl + OFF.TBL_LSIZENODE) or 0
     local node_base = rptr(player_tbl + OFF.TBL_NODE)
@@ -891,7 +830,7 @@ discover_position = function(player_tbl, globals_tbl)
         log("[!] Scanned " .. tried .. " ptr fields, no position found")
     end
 
-    -- Strategy 4: Look for "Physics" component (also has position in DST)
+    -- Strategy 4: Physics component (also carries position in DST)
     local phtt, phval = tbl_get(player_tbl, "Physics")
     if (phtt == LUA_TUSERDATA or phtt == LUA_TLIGHTUSERDATA) and phval then
         local target = phval
@@ -909,14 +848,10 @@ discover_position = function(player_tbl, globals_tbl)
     log("[!] Position discovery FAILED — running in camera-only mode")
 end
 
--- ============================================================================
--- SECTION 7: TICK HANDLER (data reading)
--- ============================================================================
-
 local function do_tick()
     if state.phase ~= PHASE_READY then return end
 
-    -- Re-validate globals periodically (player might despawn on death/reload)
+    -- Re-validate globals periodically — ThePlayer can go nil on death/reload
     if state.ticks % 100 == 0 then
         local ptt = tbl_get(state.globals_tbl, "ThePlayer")
         if ptt == LUA_TNIL or not ptt then
@@ -926,7 +861,6 @@ local function do_tick()
         end
     end
 
-    -- Read camera heading, distance, pitch from TheCamera Lua table
     local heading, distance, pitch = nil, nil, nil
     if state.camera_tbl then
         local htt, hval = tbl_get(state.camera_tbl, "heading")
@@ -947,7 +881,6 @@ local function do_tick()
         if ptt == LUA_TNUMBER then pitch = pval end
     end
 
-    -- Read camera 3D position if available
     local camX, camY, camZ = nil, nil, nil
     if state.has_camera_position and state.camera_tbl then
         local cptt, cpval = tbl_get(state.camera_tbl, "currentpos")
@@ -961,13 +894,11 @@ local function do_tick()
         end
     end
 
-    -- Read player position from probed memory location
     local posX, posY, posZ = nil, nil, nil
     if state.pos_probe then
         posX, posY, posZ = read_position(state.pos_probe)
     end
 
-    -- Build data message
     if posX or heading then
         local payload = { type = "data" }
         if posX then
@@ -999,10 +930,6 @@ local function do_tick()
     end
 end
 
--- ============================================================================
--- SECTION 8: MESSAGE HANDLER
--- ============================================================================
-
 local function handle_init()
     log("====================================")
     log("  DST Tracker (Compliant Lua)")
@@ -1022,16 +949,14 @@ local function handle_init()
     state.ticks = 0
     state.init_start = clock()
 
-    -- Step 1: find lua_pcall (synchronous, pure memory scanning)
     do_find_pcall()
     if state.phase ~= PHASE_OBSERVING then return end
 
-    -- Step 2: start observer
     do_start_observe()
     if state.phase ~= PHASE_PROBING_STATES then return end
 
-    -- Step 3: busy-wait for observer captures (game thread runs concurrently)
-    -- Poll for up to 5 seconds to collect lua_State* pointers
+    -- Busy-poll the observer for up to 5s while the game thread feeds
+    -- lua_State* captures into its ring buffer.
     log("[*] Busy-polling observer for lua_State* captures...")
     local poll_deadline = clock() + 5000
     while clock() < poll_deadline do
@@ -1039,14 +964,11 @@ local function handle_init()
         if state.phase == PHASE_DISCOVERING then
             break
         end
-        -- Small busy loop — the game thread is feeding the observer ring buffer
-        -- Each iteration polls observer:results() which drains available captures
     end
 
     if state.phase == PHASE_DISCOVERING then
         do_discover()
     else
-        -- Not enough captures yet — switch to tick-driven mode
         log("[*] No states found yet in busy-wait, switching to tick-driven polling")
     end
 end
@@ -1055,14 +977,12 @@ local function handle_tick()
     state.ticks = state.ticks + 1
 
     if state.phase == PHASE_PROBING_STATES then
-        -- Check timeout
         if (clock() - state.init_start) > state.init_timeout then
             fail_init("Timeout: could not find ThePlayer after " ..
                       state.init_timeout / 1000 .. "s")
             return
         end
         do_probe_states()
-        -- If we gathered enough states, try discovering
         if state.phase == PHASE_DISCOVERING then
             do_discover()
         end
@@ -1084,7 +1004,6 @@ local function handle_shutdown()
     state.phase = PHASE_IDLE
 end
 
--- Boot
 send({ type = "heartbeat", status = "loading" })
 log("[*] DST Tracker (Compliant Lua) loaded, waiting for init...")
 

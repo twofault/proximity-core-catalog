@@ -1,19 +1,9 @@
--- unity_mono_tracker.lua -- Unity Mono Camera Tracker for GameLink Lua
---
--- Compliant with flat read-only security model. Does NOT call
--- mono_runtime_invoke (excluded from whitelist). Instead:
--- 1. Resolves Mono metadata via whitelisted API exports
--- 2. Uses mono_compile_method to get JIT-compiled native code addresses
--- 3. Observes JIT stubs via native.observe to passively capture
---    Camera* and Transform* instance pointers from game thread calls
--- 4. Reads position/rotation from native C++ Transform via memory.read_*
+-- Unity Mono camera tracker agent. Reads camera position/rotation by
+-- resolving Mono metadata and invoking icalls directly. mono_runtime_invoke
+-- is not whitelisted, so we call the underlying native icalls instead.
 
 local PTR_SIZE = process.get_pointer_size()
 local MONO_HEADER_SIZE = 2 * PTR_SIZE  -- vtable + sync_block
-
--- ============================================================================
--- SECTION 1: CONSTANTS
--- ============================================================================
 
 local MONO_MODULE_CANDIDATES = {
     "mono-2.0-bdwgc.dll",
@@ -28,36 +18,25 @@ local UNITY_IMAGE_CANDIDATES = {
     "UnityEngine.dll",
 }
 
--- Observer captures this many mono_runtime_invoke calls per batch.
--- Ring buffer is 64 entries, so we only see the last 64 anyway.
 local OBSERVE_BATCH_SIZE = 2000
 
--- Unity native object layout constants (64-bit):
--- MonoObject header = 16 bytes (vtable + sync). Fields follow.
--- UnityEngine.Object has m_CachedPtr as its first field (at offset 0x10).
--- m_CachedPtr points to the native C++ object.
-local CACHED_PTR_OFFSET = MONO_HEADER_SIZE  -- 0x10 on 64-bit
+-- m_CachedPtr is the first field on UnityEngine.Object, right after the
+-- MonoObject header (vtable + sync_block = 0x10 on 64-bit).
+local CACHED_PTR_OFFSET = MONO_HEADER_SIZE
 
--- Native C++ Transform matrix layout (Unity 2017+, 64-bit):
--- Position can be read from the localToWorldMatrix translation column.
--- The matrix pointer is at a version-dependent offset from the native Transform.
--- We probe multiple candidate offsets.
+-- localToWorldMatrix lives at a version-dependent offset inside the native
+-- C++ Transform. Probe these candidates; seen across Unity 2017+..2022.
 local NATIVE_TRANSFORM_MATRIX_OFFSETS = { 0x38, 0x3C, 0x44, 0x48, 0x60, 0x90 }
 
--- localToWorldMatrix is a column-major 4x4 float matrix.
--- Translation = last column: m[12]=x, m[13]=y, m[14]=z
-local MATRIX_POS_X = 12 * 4  -- 48
-local MATRIX_POS_Y = 13 * 4  -- 52
-local MATRIX_POS_Z = 14 * 4  -- 56
+-- Column-major 4x4: translation is the last column (m[12..14]),
+-- forward is the third column / Z basis (m[8..10]).
+local MATRIX_POS_X = 12 * 4
+local MATRIX_POS_Y = 13 * 4
+local MATRIX_POS_Z = 14 * 4
 
--- Forward vector from matrix: third column (Z basis): m[8], m[9], m[10]
-local MATRIX_FWD_X = 8 * 4   -- 32
-local MATRIX_FWD_Y = 9 * 4   -- 36
-local MATRIX_FWD_Z = 10 * 4  -- 40
-
--- ============================================================================
--- SECTION 2: MONO API RESOLUTION
--- ============================================================================
+local MATRIX_FWD_X = 8 * 4
+local MATRIX_FWD_Y = 9 * 4
+local MATRIX_FWD_Z = 10 * 4
 
 local mono_dll = nil
 local api = {}
@@ -103,7 +82,7 @@ local function resolve_api()
     end
 
     api.get_root_domain            = r("mono_get_root_domain")
-    -- thread_attach removed from whitelist (freezes Mono shutdown)
+    -- mono_thread_attach removed from whitelist (freezes Mono shutdown).
     api.image_loaded               = r("mono_image_loaded")
     api.class_from_name            = r("mono_class_from_name")
     api.class_get_method_from_name = r("mono_class_get_method_from_name")
@@ -111,9 +90,9 @@ local function resolve_api()
     api.property_get_get_method    = r("mono_property_get_get_method")
     api.class_get_field_from_name  = r("mono_class_get_field_from_name")
     api.field_get_offset           = r("mono_field_get_offset")
-    -- string_to_utf8 removed (leaks without mono_free). Read UTF-16 directly.
+    -- mono_string_to_utf8 leaks without mono_free — read UTF-16 directly.
     api.object_unbox               = r("mono_object_unbox")
-    api.compile_method             = r("mono_compile_method")
+    api.compile_method             = r("mono_compile_method")  -- triggers JIT; we never invoke it
 
     log("Mono: API -- " .. resolve_count .. " resolved, " .. fail_count .. " failed")
 
@@ -126,10 +105,6 @@ local function resolve_api()
     return true
 end
 
--- ============================================================================
--- SECTION 3: NATIVE CALL HELPERS
--- ============================================================================
-
 local function ncall0(addr, ret)
     if not addr then return nil end
     return (native.call(addr, ret, {}, {}))
@@ -140,10 +115,6 @@ local function ncall1p(addr, ret, a1)
     return (native.call(addr, ret, {"pointer"}, {a1}))
 end
 
--- ============================================================================
--- SECTION 4: MONO METADATA RESOLUTION
--- ============================================================================
-
 local mono_methods = {}
 
 local function attach_thread()
@@ -151,9 +122,8 @@ local function attach_thread()
     if not domain or domain == 0 then
         return false, "mono_get_root_domain returned NULL"
     end
-    -- NOTE: mono_thread_attach deliberately NOT called.
-    -- It freezes Mono's shutdown (waits for GameLink agent thread forever).
-    -- Metadata APIs work without attach for read-only queries.
+    -- mono_thread_attach deliberately NOT called — it freezes Mono shutdown
+    -- waiting for the Frida agent thread. Read-only metadata works without it.
     return true
 end
 
@@ -206,7 +176,6 @@ local function resolve_metadata()
     end
     log("Mono: Unity image = 0x" .. string.format("%X", unity_image))
 
-    -- Resolve classes
     local cam_class = class_from_name(unity_image, "UnityEngine", "Camera")
     local comp_class = class_from_name(unity_image, "UnityEngine", "Component")
     local xform_class = class_from_name(unity_image, "UnityEngine", "Transform")
@@ -215,12 +184,11 @@ local function resolve_metadata()
     if not comp_class then return false, "Component class not found" end
     if not xform_class then return false, "Transform class not found" end
 
-    -- Resolve MonoMethod* pointers — needed to read icall addresses at +0x28
+    -- MonoMethod* pointers — we later read the icall address at +0x28.
     mono_methods.camera_get_main = method_from_name(cam_class, "get_main", 0)
     mono_methods.get_transform = getter_method(comp_class, "transform")
-    -- The _Injected methods are separate from the property getters.
-    -- Property getter (get_position) wraps the _Injected call internally.
-    -- We need the _Injected method directly for its icall address.
+    -- The _Injected methods are the out-param icalls the property getters wrap;
+    -- we use them directly so we can whitelist a single icall address.
     mono_methods.get_position_injected = method_from_name(
         xform_class, "get_position_Injected", 1)
     mono_methods.get_rotation_injected = method_from_name(
@@ -233,7 +201,6 @@ local function resolve_metadata()
         return false, "Component.transform getter not found"
     end
 
-    -- Scene management (optional)
     mono_methods.scene_get_active = nil
     mono_methods.scene_get_name = nil
 
@@ -259,24 +226,16 @@ local function resolve_metadata()
     return true
 end
 
--- ============================================================================
--- SECTION 5: NATIVE TRANSFORM POSITION READING
--- ============================================================================
--- Unity managed Components store a pointer to the native C++ object at
--- m_CachedPtr (offset MONO_HEADER_SIZE from the managed object base).
--- The native C++ Transform stores a localToWorldMatrix (4x4 column-major
--- float matrix). We probe candidate offsets to find the matrix.
+-- The native C++ Transform holds a column-major localToWorldMatrix at a
+-- version-dependent offset. Sniff for it by requiring m[15]==1.0 and
+-- plausible finite translation values.
 
-local native_matrix_offset = nil  -- discovered offset, cached
+local native_matrix_offset = nil
 
 local function probe_matrix_offset(native_ptr)
-    -- Read each candidate offset and check if it looks like a valid matrix.
-    -- A valid transform matrix has [3][3]=1.0 (w component of last row)
-    -- and position values are finite.
     for _, off in ipairs(NATIVE_TRANSFORM_MATRIX_OFFSETS) do
-        local m33 = memory.read_f32(native_ptr + off + 15 * 4)  -- matrix[15]
+        local m33 = memory.read_f32(native_ptr + off + 15 * 4)
         if m33 and math.abs(m33 - 1.0) < 0.001 then
-            -- Check that position values are finite and reasonable
             local px = memory.read_f32(native_ptr + off + MATRIX_POS_X)
             local py = memory.read_f32(native_ptr + off + MATRIX_POS_Y)
             local pz = memory.read_f32(native_ptr + off + MATRIX_POS_Z)
@@ -301,7 +260,7 @@ local function read_native_position(native_ptr)
     local y = memory.read_f32(base + MATRIX_POS_Y)
     local z = memory.read_f32(base + MATRIX_POS_Z)
     if not x or not y or not z then return nil end
-    if x ~= x or y ~= y or z ~= z then return nil end  -- NaN check
+    if x ~= x or y ~= y or z ~= z then return nil end
     return { x = x, y = y, z = z }
 end
 
@@ -317,15 +276,11 @@ local function read_native_forward(native_ptr)
     return { x = x, y = y, z = z }
 end
 
--- ============================================================================
--- SECTION 6: ICALL RESOLUTION + WHITELISTING
--- ============================================================================
--- Unity Mono icalls are native C++ implementations in UnityPlayer.dll.
--- The icall address is stored at MonoMethod+0x28. We whitelist them via
--- native.lookup with icall names (same approach as IL2CPP tracker).
--- This lets us CALL the icalls directly — no observer needed.
+-- Unity's Mono icall address lives at MonoMethod+0x28 (Mono 5.x/6.x). The
+-- icall itself is a native C++ function inside UnityPlayer.dll; we whitelist
+-- it through native.lookup and invoke it directly — no observer needed.
 
-local ICALL_OFFSET = 0x28  -- MonoMethod -> native icall pointer (Mono 5.x/6.x)
+local ICALL_OFFSET = 0x28
 
 local icalls = {}
 
@@ -336,7 +291,6 @@ local function resolve_icall(display_name, icall_name, mono_method)
         log("Mono: icall addr nil for " .. display_name)
         return nil
     end
-    -- Whitelist via native.lookup (icall path — name contains ::)
     local ok, resolved, err = pcall(native.lookup, mono_dll, icall_name, addr)
     if not ok or err then
         log("Mono: whitelist failed for " .. display_name .. ": " .. tostring(err or resolved))
@@ -374,10 +328,6 @@ local function resolve_icalls()
     return icalls.camera_get_main ~= nil
 end
 
--- ============================================================================
--- SECTION 7: CAPTURED STATE & DATA READING
--- ============================================================================
-
 local captured = {
     camera_ptr = nil,
     transform_ptr = nil,
@@ -387,15 +337,12 @@ local captured = {
 
 local scene_cache = { name = "Unknown" }
 
--- No observer processing needed — we call icalls directly now.
-
 local function read_scene_name()
     if not captured.scene_name_obj or captured.scene_name_obj == 0 then
         return scene_cache.name
     end
-    -- Read Mono string directly from memory instead of mono_string_to_utf8
-    -- (which allocates and leaks without mono_free).
-    -- Mono string layout (64-bit): length at +0x10, UTF-16 chars at +0x14
+    -- Read the Mono string directly; mono_string_to_utf8 would allocate and
+    -- leak (mono_free is not whitelisted). Layout: length @ +0x10, UTF-16 @ +0x14.
     local ok, len = pcall(memory.read_s32, captured.scene_name_obj + 0x10)
     if not ok or not len or len <= 0 or len > 256 then
         return scene_cache.name
@@ -407,7 +354,8 @@ local function read_scene_name()
     return scene_cache.name
 end
 
--- Convert forward vector to euler angles (degrees, Unity convention)
+-- Unity convention: Y-up, forward = +Z. (Proximity uses -Z forward; the host
+-- bridge script does the Z flip.)
 local function forward_to_euler(fwd)
     if not fwd then return nil end
     local len = math.sqrt(fwd.x * fwd.x + fwd.y * fwd.y + fwd.z * fwd.z)
@@ -415,11 +363,8 @@ local function forward_to_euler(fwd)
     local fx = fwd.x / len
     local fy = fwd.y / len
     local fz = fwd.z / len
-    -- Unity convention: Y-up, forward = +Z
-    -- pitch = asin(fy), yaw = atan2(fx, fz)
     local pitch = math.deg(math.asin(math.max(-1, math.min(1, fy))))
     local yaw = math.deg(math.atan(fx, fz))
-    -- Normalize to [0, 360)
     if pitch < 0 then pitch = pitch + 360 end
     if yaw < 0 then yaw = yaw + 360 end
     return { x = pitch, y = yaw, z = 0 }
@@ -429,18 +374,15 @@ local vec3_buf = nil
 local quat_buf = nil
 
 local function read_frame()
-    -- Call Camera.get_main() -> Camera*
     if not icalls.camera_get_main then return nil end
     local ok, cam_ptr = pcall(native.call, icalls.camera_get_main, "pointer", {}, {})
     if not ok or not cam_ptr or cam_ptr == 0 then return nil end
 
-    -- Call get_transform(camera) -> Transform*
     if not icalls.get_transform then return nil end
     local tok, tf_ptr = pcall(native.call, icalls.get_transform, "pointer",
         {"pointer"}, {cam_ptr})
     if not tok or not tf_ptr or tf_ptr == 0 then return nil end
 
-    -- Read position via _Injected icall (writes to our buffer) or matrix fallback
     local pos = nil
     if icalls.get_position then
         if not vec3_buf then vec3_buf = memory.alloc(16) end
@@ -456,7 +398,6 @@ local function read_frame()
         end
     end
 
-    -- Fallback: read from native transform matrix
     if not pos then
         local native_tf = memory.read_pointer(tf_ptr + CACHED_PTR_OFFSET)
         if native_tf and native_tf ~= 0 then
@@ -468,7 +409,6 @@ local function read_frame()
     end
     if not pos then return nil end
 
-    -- Read forward from rotation or matrix
     local fwd = nil
     if icalls.get_rotation then
         if not quat_buf then quat_buf = memory.alloc(16) end
@@ -480,7 +420,6 @@ local function read_frame()
             local qz = memory.read_f32(quat_buf + 8)
             local qw = memory.read_f32(quat_buf + 12)
             if qx and qy and qz and qw then
-                -- Quaternion to forward vector
                 fwd = {
                     x = 2 * (qx * qz + qw * qy),
                     y = 2 * (qy * qz - qw * qx),
@@ -490,7 +429,6 @@ local function read_frame()
         end
     end
 
-    -- Fallback: read forward from matrix
     if not fwd then
         local native_tf = memory.read_pointer(tf_ptr + CACHED_PTR_OFFSET)
         if native_tf and native_tf ~= 0 and native_matrix_offset then
@@ -520,17 +458,13 @@ local function read_frame()
     }
 end
 
--- ============================================================================
--- SECTION 8: MESSAGE HANDLER
--- ============================================================================
-
 local state = {
     initialized = false,
     consecutive_errors = 0,
     warmup_ticks = 0,
-    -- No fatal-error on position loss. Process exit is detected by the
-    -- engine; the bridge host script handles the searching-for-player UI.
-    WARMUP_TICKS = 5,  -- brief warmup for icall thread attachment
+    -- Position loss never produces a fatal-error — process exit is detected
+    -- by the engine, and the host script owns the searching-for-player UI.
+    WARMUP_TICKS = 5,
 }
 
 local function handle_init()
@@ -615,15 +549,9 @@ local function handle_tick()
         state.consecutive_errors = state.consecutive_errors + 1
     end
 
-    -- Send heartbeat so the host knows we're alive but have no position.
-    -- No fatal-error: the engine detects process exit; we just keep trying.
     send({ type = "heartbeat", status = "no-position",
         errors = state.consecutive_errors })
 end
-
--- ============================================================================
--- SECTION 9: BOOT & RECV HANDLER
--- ============================================================================
 
 send({ type = "heartbeat", status = "loading" })
 

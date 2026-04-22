@@ -2,7 +2,7 @@
   "id": "bedrock-tracker-tf",
   "name": "Minecraft Bedrock Edition",
   "description": "Extracts player position from Minecraft Bedrock Edition by scanning static camera data in the executable's data section",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "author": "twofault",
   "entry": "main.lua",
   "frida_script": "bedrock_tracker.lua",

@@ -1,7 +1,6 @@
 -- CS2 Vision Tracker - Map-based position tracking via computer vision
 -- Port of test2map.py algorithm to Proximity Core Lua API
 
--- Configuration
 local PROCESSING_SCALE = 0.85
 local MIN_MATCH_COUNT = 10
 local MAX_FEATURES = 2000
@@ -19,10 +18,8 @@ local CUE_TTL_MS = 5000
 local REGION_CACHE_KEY = USE_SCREEN_CAPTURE and "image_region_screen" or "image_region_window"
 local WINDOW_SIGNATURE_CACHE_KEY = REGION_CACHE_KEY .. "_window_signature"
 
--- Tracked image region (loaded from cache or user calibration)
 local TRACK_REGION = nil
 
--- State
 local refFeatures = nil
 local refKeypoints = nil
 local smoothedPosX = 0
@@ -49,7 +46,6 @@ local function makeCaptureOpts(extra)
     return opts
 end
 
--- Smoothing helpers
 local function smoothValue(current, target, speed, dt)
     return current + (target - current) * (1.0 - math.exp(-speed * dt))
 end
@@ -71,7 +67,6 @@ local function emitCue(kind, detail)
         return
     end
 
-    -- Backward-compatible fallback for runtimes without Bridge.emitCue.
     local payload = Json.encode({
         nonce = tostring(Core.getTimeMillis()),
         kind = kind,
@@ -186,11 +181,9 @@ local function handleBridgeInfoActions()
     return false
 end
 
---- Load tracked region from cache, or run interactive calibration.
 local function loadOrCalibrateTrackedRegion()
     local currentWindowSignature = getCurrentWindowSignature()
 
-    -- Try cached region first
     local cached = Cache.load(REGION_CACHE_KEY)
     if cached and cached.x and cached.y and cached.w and cached.h then
         local cachedWindowSignature = Cache.load(WINDOW_SIGNATURE_CACHE_KEY)
@@ -210,7 +203,6 @@ local function loadOrCalibrateTrackedRegion()
         end
     end
 
-    -- No cache: capture screenshot for interactive calibration
     if PRE_CAPTURE_COUNTDOWN_SECONDS > 0 then
         local endTime = Core.getTimeMillis() + (PRE_CAPTURE_COUNTDOWN_SECONDS * 1000)
         local lastRemaining = nil
@@ -227,7 +219,6 @@ local function loadOrCalibrateTrackedRegion()
     Bridge.setProgress("Capturing target window for region selection...", 8, 1)
     emitCue("capture_ready", "Prepare to crop the minimap region")
 
-    -- Clear stale calibration payload from a previous attempt.
     Bridge.push("calibration_result", "", 1)
 
     local screenshot = Capture.take(makeCaptureOpts())
@@ -245,8 +236,6 @@ local function loadOrCalibrateTrackedRegion()
     local dataUrl = screenshotForUi:toDataUrl()
     emitCue("capture_taken", "Screenshot ready for region selection")
 
-    -- Push screenshot, metadata, and signal region-selection mode to frontend.
-    -- Keep wording generic so frontend components can remain reusable.
     Bridge.push("calibration_screenshot", dataUrl, 120000)
     Bridge.push("calibration_scale", tostring(calibrationScale), 120000)
     if Bridge.setCalibrationUi then
@@ -263,7 +252,6 @@ local function loadOrCalibrateTrackedRegion()
 
     Core.log("Waiting for user to select capture region...")
 
-    -- Poll for result (setProgress auto-yields in coroutine, one frame per iteration)
     local maxAttempts = 3600 -- ~3 minutes at 60Hz
     for _ = 1, maxAttempts do
         Bridge.setProgress("Select capture region on the screenshot", 10, 2)
@@ -272,7 +260,6 @@ local function loadOrCalibrateTrackedRegion()
         if resultJson and resultJson ~= "" then
             local ok, result = pcall(Json.decode, resultJson)
             if ok and result and result.x and result.y and result.w and result.h then
-                -- Save to cache for future sessions
                 Cache.save(REGION_CACHE_KEY, {
                     x = result.x,
                     y = result.y,
@@ -285,7 +272,6 @@ local function loadOrCalibrateTrackedRegion()
                 Core.log("Image region selected and cached: " ..
                     result.x .. "," .. result.y .. " " .. result.w .. "x" .. result.h)
 
-                -- Clear calibration signals
                 clearCalibrationUiState()
 
                 emitCue("selection_confirmed", "Capture region confirmed")
@@ -301,10 +287,8 @@ end
 function init()
     publishInfoActions()
 
-    -- Step 1: Load or calibrate tracked region
     TRACK_REGION = loadOrCalibrateTrackedRegion()
 
-    -- Step 2: Load reference map
     Bridge.setProgress("Loading reference map...", 30, 1)
 
     local refMap = Resource.loadImage("map.png")
@@ -316,14 +300,12 @@ function init()
     mapWidth = size.width
     mapHeight = size.height
 
-    -- Initialize smoothed position to map center
     smoothedPosX = mapWidth / 2
     smoothedPosY = mapHeight / 2
     LocalPlayer.setCameraPosition(smoothedPosX, 0, smoothedPosY)
 
     Bridge.setProgress("Processing reference map...", 50, 1)
 
-    -- Convert to grayscale and scale for feature detection
     local refGray = refMap:grayscale()
     local refScaled = refGray:scale(PROCESSING_SCALE)
 
@@ -346,7 +328,6 @@ function update(dt)
         return
     end
 
-    -- Capture tracked region, pre-scaled and grayscale
     local live = Capture.take(makeCaptureOpts({
         region = TRACK_REGION,
         scale = PROCESSING_SCALE,
@@ -364,7 +345,6 @@ function update(dt)
         return
     end
 
-    -- Detect features on live capture
     local liveFeatures = CV.detectFeatures(live, {
         maxFeatures = MAX_FEATURES,
         threshold = 20
@@ -379,7 +359,6 @@ function update(dt)
         return
     end
 
-    -- Match live features against reference
     local matches = CV.matchFeatures(liveFeatures, refFeatures, {
         ratioTest = 0.75,
         maxResults = 100
@@ -396,7 +375,6 @@ function update(dt)
         return
     end
 
-    -- Build point correspondences for homography
     local liveKeypoints = liveFeatures:getKeypoints()
     local srcPoints = {}
     local dstPoints = {}
@@ -420,7 +398,6 @@ function update(dt)
         return
     end
 
-    -- Find homography (RANSAC)
     local H = CV.findHomography(srcPoints, dstPoints, {
         threshold = 5.0,
         method = "ransac",
@@ -446,7 +423,6 @@ function update(dt)
         return
     end
 
-    -- Transform center of live capture to get position on reference map
     -- Use the actual captured frame size (already in scaled processing space).
     local liveCenterX = liveSize.width / 2
     local liveCenterY = liveSize.height / 2
@@ -467,7 +443,6 @@ function update(dt)
         return
     end
 
-    -- Transform forward vector for rotation
     local fwdOffsetY = 15
     local fwdResult = H:transformPoint(liveCenterX, liveCenterY - fwdOffsetY)
     local fwdRefX = fwdResult.x / PROCESSING_SCALE
@@ -480,7 +455,6 @@ function update(dt)
         return
     end
 
-    -- Calculate rotation from transformed forward vector
     local visionRot = math.atan2(dirY, dirX)
     if not isFiniteNumber(visionRot) then
         markTrackingMissing("Invalid rotation value")
@@ -491,7 +465,6 @@ function update(dt)
 
     local safeDt = math.max(dt or 0, 1.0 / 240.0)
 
-    -- Velocity tracking for prediction
     if lastPosX then
         velocityX = 0.9 * velocityX + 0.1 * ((visionPosX - lastPosX) / safeDt)
         velocityY = 0.9 * velocityY + 0.1 * ((visionPosY - lastPosY) / safeDt)
@@ -499,22 +472,18 @@ function update(dt)
     lastPosX = visionPosX
     lastPosY = visionPosY
 
-    -- Blend prediction with vision based on confidence
     local predictedX = smoothedPosX + velocityX * safeDt
     local predictedY = smoothedPosY + velocityY * safeDt
     local conf2 = confidence * confidence
     local targetX = (1 - conf2) * predictedX + conf2 * visionPosX
     local targetY = (1 - conf2) * predictedY + conf2 * visionPosY
 
-    -- Apply exponential smoothing
     smoothedPosX = smoothValue(smoothedPosX, targetX, POS_SMOOTHING, safeDt)
     smoothedPosY = smoothValue(smoothedPosY, targetY, POS_SMOOTHING, safeDt)
     smoothedRot = smoothAngle(smoothedRot, visionRot, ROT_SMOOTHING, safeDt)
 
-    -- Set local player position (map 2D -> 3D: x=map_x, y=0, z=map_y)
+    -- map 2D -> 3D: x=map_x, y=0, z=map_y
     LocalPlayer.setCameraPosition(smoothedPosX, 0, smoothedPosY)
-
-    -- Set orientation (pitch=0, yaw=rotation, roll=0)
     LocalPlayer.setCameraOrientation(0, smoothedRot, 0)
 end
 

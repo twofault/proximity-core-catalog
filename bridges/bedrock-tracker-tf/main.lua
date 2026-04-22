@@ -1,12 +1,10 @@
--- Minecraft Bedrock Edition GameBridge
--- Extracts camera position from Minecraft.Windows.exe's static data section.
--- Camera position is stored as a global Vec3 + forward unit vector that updates
--- each frame. The offset is version-locked but auto-discovered and cached.
+-- Minecraft Bedrock Edition GameBridge.
+-- Camera is a global Vec3 + forward unit vector in the exe's static data;
+-- offset is auto-discovered and cached per exe hash.
 
--- CONSTANTS
 local TICK_STALL_RESET_SECONDS = 0.2
 local ATTACH_TIMEOUT_MS = 10000
-local SEARCHING_LOG_INTERVAL = 200  -- every 10s at 20Hz
+local SEARCHING_LOG_INTERVAL = 600  -- every 10s at 60Hz
 
 local DIMENSION_NAMES = {
     [0] = "overworld",
@@ -30,7 +28,6 @@ local function check_cancel()
     return false
 end
 
--- INITIALIZATION
 function init()
     local pid = Bridge.getPid()
     if not pid then
@@ -42,7 +39,6 @@ function init()
     Bridge.setProgress("Detecting Minecraft Bedrock...", 5, 2)
     Core.log("Bedrock Bridge: Initializing for PID " .. tostring(pid))
 
-    -- Build cache key from exe metadata
     local cache_key = nil
     if Bridge.hashFileMetadata then
         local profile = Bridge.getGameProfile()
@@ -59,7 +55,6 @@ function init()
         cache_key = "bedrock_cam_default"
     end
 
-    -- Check cache
     local cached_offset = nil
     if cache_key then
         Bridge.setProgress("Checking cache...", 10, 1)
@@ -75,7 +70,6 @@ function init()
 
     if check_cancel() then return end
 
-    -- Attach GameLink
     Bridge.setProgress("Attaching to process...", 40, 3)
     local attach_result = Gamelink.attach({ timeout_ms = ATTACH_TIMEOUT_MS })
     if not attach_result.success then
@@ -103,7 +97,6 @@ function init()
 
     if check_cancel() then return end
 
-    -- Load agent
     Bridge.setProgress("Loading tracker agent...", 60, 1)
     local load_result = Gamelink.load("bedrock_tracker.lua", {
         runtime = "lua",
@@ -120,7 +113,6 @@ function init()
 
     if check_cancel() then return end
 
-    -- Send init with cached offset
     if cached_offset then
         Bridge.setProgress("Verifying cached offset...", 70, 1)
         Bridge.setProgressFooter("Using cached camera offset from previous session")
@@ -144,7 +136,6 @@ function init()
         return
     end
 
-    -- Wait for init-response
     local init_ok = false
     local init_done = false
 
@@ -200,7 +191,6 @@ function init()
         return
     end
 
-    -- Prime first tick
     local tick_result = Gamelink.post(script_handle, {
         type = "tick",
         now_ms = Core.getTimeMillis(),
@@ -221,7 +211,6 @@ function init()
     Core.log("Bedrock Bridge initialized")
 end
 
--- UPDATE LOOP
 function update(dt)
     if not script_handle then return end
 
@@ -260,8 +249,7 @@ function update(dt)
                     -- Camera Y is at eye level; speaker defaults to camera.
                     LocalPlayer.setCameraPosition(d.posX, d.posY, d.posZ)
 
-                    -- Compute pitch and yaw from forward vector
-                    -- Negate both components to flip 180° on the XZ plane
+                    -- Negate fwdX/fwdZ to flip 180° on the XZ plane
                     if d.fwdX and d.fwdY and d.fwdZ then
                         local yaw = math.atan2(-d.fwdX, -d.fwdZ)
                         local horiz = math.sqrt(d.fwdX * d.fwdX + d.fwdZ * d.fwdZ)
@@ -269,7 +257,6 @@ function update(dt)
                         LocalPlayer.setCameraOrientation(pitch, yaw, 0)
                     end
 
-                    -- Send dimension as level name
                     if d.dimension ~= nil then
                         local dim_name = DIMENSION_NAMES[d.dimension] or "overworld"
                         if dim_name ~= last_dimension then
@@ -300,7 +287,6 @@ function update(dt)
         end
     end
 
-    -- Pull-tick management
     local dt_seconds = dt
     if not dt_seconds or dt_seconds <= 0 then
         dt_seconds = 1 / 60
@@ -329,7 +315,6 @@ function update(dt)
     end
 end
 
--- DISPOSAL
 function dispose()
     Core.log("Bedrock Bridge: Disposing")
     pcall(function()

@@ -1,20 +1,12 @@
 -- Unity IL2CPP Tracker - GameBridge package
--- Extracts camera position from Unity IL2CPP games via GameLink Lua runtime.
+-- Extracts camera position from Unity IL2CPP games via Frida Lua runtime.
 -- Uses pull-tick mode: host sends tick messages, agent responds with data.
-
--- ============================================================================
--- CONSTANTS
--- ============================================================================
 
 local TICK_STALL_RESET_SECONDS = 0.2
 local ATTACH_TIMEOUT_MS = 25000
 local ATTACH_MAX_ATTEMPTS = 3
 local ATTACH_RETRY_DELAY_MS = 4000
-local SEARCHING_LOG_INTERVAL = 200  -- Log "searching" every 10 seconds at 20Hz
-
--- ============================================================================
--- STATE
--- ============================================================================
+local SEARCHING_LOG_INTERVAL = 600  -- Log "searching" every 10 seconds at 60Hz
 
 local script_handle = nil
 local tick_in_flight = false
@@ -78,10 +70,6 @@ local function attach_with_retries()
     return false, last_error
 end
 
--- ============================================================================
--- INITIALIZATION (runs as coroutine)
--- ============================================================================
-
 function init()
     local pid = Bridge.getPid()
     if not pid then
@@ -93,7 +81,7 @@ function init()
     Core.log("IL2CPP Tracker: Initializing for PID " .. tostring(pid))
     Bridge.setProgress("Initializing...", 5, 2)
 
-    -- Step 1: Attach GameLink (non-blocking + retry to handle early-process startup races)
+    -- Non-blocking attach + retry to handle early-process startup races
     local attached, attach_error = attach_with_retries()
     if not attached then
         if attach_error == "Cancelled" then
@@ -111,7 +99,6 @@ function init()
         return
     end
 
-    -- Step 2: Load Lua tracker agent
     Bridge.setProgress("Loading tracker agent...", 60, 1)
     local load_result = Gamelink.load("unity_il2cpp_tracker.lua", {
         runtime = "lua",
@@ -134,7 +121,6 @@ function init()
         return
     end
 
-    -- Step 3: Send init message to agent
     Bridge.setProgress("Initializing engine...", 80, 5)
     local send_result = Gamelink.send(script_handle, { type = "init" })
     if not send_result.success then
@@ -143,7 +129,6 @@ function init()
         return
     end
 
-    -- Step 4: Wait for init-response from agent
     local init_ok = false
     while true do
         if Bridge.isCancelled() then
@@ -190,7 +175,6 @@ function init()
         return
     end
 
-    -- Step 5: Prime the first tick
     local tick_result = Gamelink.post(script_handle, {
         type = "tick",
         now_ms = Core.getTimeMillis(),
@@ -208,10 +192,6 @@ function init()
     Bridge.setProgressSnap("Connected!", 100)
     Core.log("IL2CPP Tracker initialized (pull-tick mode)")
 end
-
--- ============================================================================
--- UPDATE LOOP
--- ============================================================================
 
 function update(dt)
     if not script_handle then return end
@@ -241,17 +221,15 @@ function update(dt)
                 local d = msg.payload
 
                 -- Fatal errors from agent are logged but do NOT disconnect.
-                -- Process exit is detected by the engine; GameLink errors are
+                -- Process exit is detected by the engine; Frida errors are
                 -- caught by Gamelink.isError() above.
                 if d.type == "fatal-error" then
                     Core.error("Agent error: " .. (d.error or "unknown"))
                 end
 
-                -- Set camera position (negate Z for coordinate conversion)
                 if d.posX then
                     LocalPlayer.setCameraPosition(
                         d.posX, d.posY, -(d.posZ or 0))
-                    -- Clear searching state when position data resumes
                     if is_searching then
                         is_searching = false
                         Bridge.push("searching_for_player", false, 30000)
@@ -259,7 +237,6 @@ function update(dt)
                     end
                 end
 
-                -- Set orientation from euler angles or forward vector
                 if d.eulerX then
                     local function toSigned(deg)
                         if deg > 180 then return deg - 360 end
@@ -296,7 +273,7 @@ function update(dt)
         end
     end
 
-    -- Pull-tick scheduling
+    -- Pull-tick scheduling: host drives ticks, agent replies before next one
     local dt_seconds = dt
     if not dt_seconds or dt_seconds <= 0 then dt_seconds = 1 / 60 end
 
@@ -322,10 +299,6 @@ function update(dt)
         tick_wait_seconds = 0
     end
 end
-
--- ============================================================================
--- DISPOSAL
--- ============================================================================
 
 function dispose()
     Core.log("IL2CPP Tracker: Disposing...")
