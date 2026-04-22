@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-22T08:04:19.882274Z",
+  "generated_at": "2026-04-22T08:05:35.909231Z",
   "min_app_version": "0.1.0",
   "bridges": [
     {
@@ -350,6 +350,125 @@
                   "exact": "Terraria.exe"
                 }
               ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "unreal-tracker-tf",
+      "name": "Unreal Engine (Generic)",
+      "description": "Extracts player position from Unreal Engine 4/5 games using runtime introspection",
+      "author": "twofault",
+      "tags": [
+        "unreal-engine",
+        "ue4",
+        "ue5",
+        "epic",
+        "generic",
+        "engine",
+        "experimental"
+      ],
+      "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/unreal-tracker-tf/icon.png",
+      "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/unreal-tracker-tf/README.md",
+      "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/unreal-tracker-tf",
+      "latest_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "released_at": "2026-04-22T08:05:32Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/unreal-tracker-tf/v1.0.0/unreal-tracker-tf-1.0.0.zip",
+          "sha256": "ac767f845c115e0936139dc78919931ec4d8750e7042d00d2fcf7768734f8f71",
+          "size_bytes": 25657,
+          "changelog": "Initial public release.\n- Uses Gamelink Lua API (formerly Frida).",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "unreal"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "none_of": [
+                {
+                  "contains": "CrashReportClient"
+                },
+                {
+                  "contains": "EpicWebHelper"
+                },
+                {
+                  "contains": "EOSOverlay"
+                },
+                {
+                  "contains": "EasyAntiCheat"
+                },
+                {
+                  "contains": "BEService"
+                },
+                {
+                  "contains": "UE4PrereqSetup"
+                },
+                {
+                  "contains": "UnrealCEFSubProcess"
+                }
+              ]
+            },
+            "structure": {
+              "ancestor_file_exists": [
+                "Engine"
+              ],
+              "ancestor_depth": 5
+            }
+          }
+        },
+        {
+          "version": "1.0.0",
+          "released_at": "0001-01-01T00:00:00Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/unreal-tracker-tf/v1.0.0/unreal-tracker-tf-1.0.0.zip",
+          "sha256": "ac767f845c115e0936139dc78919931ec4d8750e7042d00d2fcf7768734f8f71",
+          "size_bytes": 25657,
+          "changelog": "Initial public release.\n- Uses Gamelink Lua API (formerly Frida).",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "unreal"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "none_of": [
+                {
+                  "contains": "CrashReportClient"
+                },
+                {
+                  "contains": "EpicWebHelper"
+                },
+                {
+                  "contains": "EOSOverlay"
+                },
+                {
+                  "contains": "EasyAntiCheat"
+                },
+                {
+                  "contains": "BEService"
+                },
+                {
+                  "contains": "UE4PrereqSetup"
+                },
+                {
+                  "contains": "UnrealCEFSubProcess"
+                }
+              ]
+            },
+            "structure": {
+              "ancestor_file_exists": [
+                "Engine"
+              ],
+              "ancestor_depth": 5
             }
           }
         }
