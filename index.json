@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-22T08:03:56.457388Z",
+  "generated_at": "2026-04-22T08:04:06.270634Z",
   "min_app_version": "0.1.0",
   "bridges": [
     {
@@ -96,6 +96,55 @@
       ]
     },
     {
+      "id": "il2cpp-tracker-tf",
+      "name": "Unity IL2CPP Tracker",
+      "description": "Tracks camera position in Unity games using IL2CPP runtime",
+      "author": "twofault",
+      "tags": [
+        "unity",
+        "il2cpp",
+        "generic",
+        "engine",
+        "experimental"
+      ],
+      "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/il2cpp-tracker-tf/icon.png",
+      "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/il2cpp-tracker-tf/README.md",
+      "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/il2cpp-tracker-tf",
+      "latest_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "released_at": "2026-04-22T08:03:57Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/il2cpp-tracker-tf/v1.0.0/il2cpp-tracker-tf-1.0.0.zip",
+          "sha256": "0533eb050b7e455e18f3ce3518865f64e3e5cc66047c04121f0c85b6b37b199f",
+          "size_bytes": 11756,
+          "changelog": "Initial public release.\n- Uses Gamelink Lua API (formerly Frida).",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "unity-il2cpp"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "none_of": [
+                {
+                  "contains": "crashhandler"
+                }
+              ]
+            },
+            "files": {
+              "require_any": [
+                "GameAssembly.dll"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
       "id": "minecraft-tracker-tf",
       "name": "Minecraft Java Edition",
       "description": "Extracts player position from Minecraft Java Edition using Frida with automatic deobfuscation",
@@ -153,6 +202,62 @@
             "structure": {
               "ancestor_contains": ".minecraft",
               "ancestor_depth": 6
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "mono-tracker-tf",
+      "name": "Unity Mono Tracker",
+      "description": "Tracks camera position in Unity games using Mono runtime",
+      "author": "twofault",
+      "tags": [
+        "unity",
+        "mono",
+        "generic",
+        "engine",
+        "dotnet",
+        "experimental"
+      ],
+      "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/mono-tracker-tf/icon.png",
+      "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/mono-tracker-tf/README.md",
+      "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/mono-tracker-tf",
+      "latest_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "released_at": "2026-04-22T08:04:04Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/mono-tracker-tf/v1.0.0/mono-tracker-tf-1.0.0.zip",
+          "sha256": "499c3378459b2ff71d50a9dc8b939c2181bcc6b0708958871de6ccc47badbe35",
+          "size_bytes": 12041,
+          "changelog": "Initial public release.\n- Uses Gamelink Lua API (formerly Frida).",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "unity-mono"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "none_of": [
+                {
+                  "contains": "crashhandler"
+                }
+              ]
+            },
+            "structure": {
+              "sibling_pattern": "*_Data"
+            },
+            "files": {
+              "require_all": [
+                "{sibling}/Managed/Assembly-CSharp.dll"
+              ],
+              "forbid": [
+                "GameAssembly.dll"
+              ]
             }
           }
         }
