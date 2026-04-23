@@ -22,6 +22,7 @@ ID_PATTERN = re.compile(r"^[a-z][a-z0-9-]{2,31}$")
 REQUIRED_FIELDS = {"id", "name", "description", "version", "author", "entry"}
 REQUIRED_FILES = {"manifest.json", "main.lua", "README.md", "CHANGELOG.md"}
 RESERVED_TAGS = {"recommended"}
+VALID_MESH_SUPPORT = {"none", "partial", "full"}
 URL_FIELDS = {"thumbnail", "icon", "homepage", "readme"}  # fields that must NOT contain external URLs
 
 
@@ -89,6 +90,13 @@ def check_bridge(bridge_dir: Path) -> None:
     version = manifest["version"]
     if f"v{version}" not in changelog and version not in changelog:
         fail(f"{bridge_dir}: CHANGELOG.md has no entry for version {version}")
+
+    mesh_support = manifest.get("mesh_support")
+    if mesh_support is not None and mesh_support not in VALID_MESH_SUPPORT:
+        fail(
+            f"{bridge_dir}: mesh_support='{mesh_support}' is invalid — "
+            f"must be one of {sorted(VALID_MESH_SUPPORT)} (or omit the field, which defaults to 'none')"
+        )
 
     tags = manifest.get("tags", [])
     reserved_used = set(tags) & RESERVED_TAGS
