@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-23T00:44:56.721900Z",
+  "generated_at": "2026-04-23T00:45:12.242910Z",
   "min_app_version": "0.1.0",
   "bridges": [
     {
@@ -585,10 +585,10 @@
       "versions": [
         {
           "version": "1.0.2",
-          "released_at": "2026-04-22T20:36:14Z",
+          "released_at": "2026-04-23T00:45:07Z",
           "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/mono-tracker-tf/v1.0.2/mono-tracker-tf-1.0.2.zip",
-          "sha256": "498759dc895896536b9f14e349745425b7c56c1b6c53bc45d75dc2cdf568c120",
-          "size_bytes": 10740,
+          "sha256": "dea7e04efe380e1d9628c5b0a78443207dbb2c59bd991ef87b617ede6e7936fd",
+          "size_bytes": 10757,
           "changelog": "- Bump engine tick to 60Hz + clean up bridge scripts",
           "min_app_version": "0.1.0",
           "yanked": false,
