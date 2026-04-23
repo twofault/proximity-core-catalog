@@ -214,7 +214,7 @@ def verify_index(expected_bridges: list[str], expected_version: str, token: str)
             f"    scripts/release.py --retag-only <bridge-id> {expected_version}"
         )
     else:
-        print(f"  all {len(expected_bridges)} bridges at v{expected_version} ✓")
+        print(f"  all {len(expected_bridges)} bridges at v{expected_version} [ok]")
 
 
 def release_one(root: Path, token: str, bridge: str, version: str, message: str | None) -> str:
@@ -260,12 +260,12 @@ def cmd_all(args: argparse.Namespace) -> int:
     for tag in tags:
         try:
             result = wait_for_workflow(tag, token)
-            marker = "✓" if result["conclusion"] == "success" else "✗"
+            marker = "[ok]" if result["conclusion"] == "success" else "[fail]"
             print(f"  {marker} {tag}: {result['conclusion']}")
             if result["conclusion"] != "success":
                 failures.append(tag)
         except RuntimeError as e:
-            print(f"  ✗ {tag}: {e}")
+            print(f"  [fail] {tag}: {e}")
             failures.append(tag)
 
     verify_index(bridges, args.version, token)
