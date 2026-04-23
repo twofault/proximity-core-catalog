@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-22T20:36:35.294705Z",
+  "generated_at": "2026-04-23T00:44:56.721900Z",
   "min_app_version": "0.1.0",
   "bridges": [
     {
@@ -311,7 +311,9 @@
         "il2cpp",
         "generic",
         "engine",
-        "experimental"
+        "experimental",
+        "recommended",
+        "broad_support"
       ],
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/il2cpp-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/il2cpp-tracker-tf/README.md",
@@ -572,7 +574,9 @@
         "generic",
         "engine",
         "dotnet",
-        "experimental"
+        "experimental",
+        "recommended",
+        "broad_support"
       ],
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/mono-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/mono-tracker-tf/README.md",
@@ -617,10 +621,10 @@
         },
         {
           "version": "1.0.1",
-          "released_at": "2026-04-22T18:44:47Z",
+          "released_at": "2026-04-23T00:44:48Z",
           "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/mono-tracker-tf/v1.0.1/mono-tracker-tf-1.0.1.zip",
-          "sha256": "431525c389502199ef4df48ca4e444dd53ea80ceaa82745270a9c6ccf8d6d4be",
-          "size_bytes": 12109,
+          "sha256": "45c8cadb42562f64665166c5f31ecefbb2cafe616443d9e5f92720c81d509029",
+          "size_bytes": 10757,
           "changelog": "- Rebrand: all user-facing \"Frida\" references now say \"GameLink\" to match the Lua API.",
           "min_app_version": "0.1.0",
           "yanked": false,
@@ -795,7 +799,9 @@
         "epic",
         "generic",
         "engine",
-        "experimental"
+        "experimental",
+        "recommended",
+        "broad_support"
       ],
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/unreal-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/unreal-tracker-tf/README.md",
