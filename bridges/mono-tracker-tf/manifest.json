@@ -41,6 +41,8 @@
     "generic",
     "engine",
     "dotnet",
-    "experimental"
+    "experimental",
+    "recommended",
+    "broad_support"
   ]
 }

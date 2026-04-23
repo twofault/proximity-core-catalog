@@ -34,6 +34,8 @@
     "il2cpp",
     "generic",
     "engine",
-    "experimental"
+    "experimental",
+    "recommended",
+    "broad_support"
   ]
 }

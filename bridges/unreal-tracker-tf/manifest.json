@@ -55,6 +55,8 @@
     "epic",
     "generic",
     "engine",
-    "experimental"
+    "experimental",
+    "recommended",
+    "broad_support"
   ]
 }

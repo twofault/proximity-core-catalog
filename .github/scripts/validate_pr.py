@@ -21,7 +21,7 @@ from pathlib import Path
 ID_PATTERN = re.compile(r"^[a-z][a-z0-9-]{2,31}$")
 REQUIRED_FIELDS = {"id", "name", "description", "version", "author", "entry"}
 REQUIRED_FILES = {"manifest.json", "main.lua", "README.md", "CHANGELOG.md"}
-RESERVED_TAGS = {"recommended"}
+RESERVED_TAGS = {"recommended", "broad_support"}
 VALID_MESH_SUPPORT = {"none", "partial", "full"}
 URL_FIELDS = {"thumbnail", "icon", "homepage", "readme"}  # fields that must NOT contain external URLs
 
