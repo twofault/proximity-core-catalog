@@ -5,7 +5,7 @@
   "version": "1.0.2",
   "author": "twofault",
   "entry": "main.lua",
-  "frida_script": "minecraft_tracker.lua",
+  "gamelink_script": "minecraft_tracker.lua",
   "game_engines": [
     "java"
   ],

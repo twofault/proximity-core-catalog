@@ -14,8 +14,11 @@ A bridge lives at `bridges/<bridge-id>/` with:
 - `icon.png` or `icon.svg` (required — PNG must be at least 128×128 pixels)
 - `README.md` (required)
 - `CHANGELOG.md` (required; at least one entry for the version you're tagging)
-- `frida_script.js` (optional, for Frida-based bridges)
 - `assets/` (optional — supplementary files)
+
+Bridges run a single Lua script inside the GameLink sandbox. Injected
+JavaScript (QuickJS) scripts are not supported — bridges cannot ship a
+separate `.js` file, and the Lua API will reject any request to load one.
 
 ## Bridge ID rules
 
@@ -33,7 +36,6 @@ A bridge lives at `bridges/<bridge-id>/` with:
   "version": "1.0.0",
   "author": "your-github-handle",
   "entry": "main.lua",
-  "frida_script": "frida_script.js",
   "game_engines": ["unity-mono"],
   "compatibility": {},
   "bridge_scope": "game_specific",

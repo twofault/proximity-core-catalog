@@ -5,7 +5,7 @@
   "version": "1.0.2",
   "author": "twofault",
   "entry": "main.lua",
-  "frida_script": "unity_il2cpp_tracker.lua",
+  "gamelink_script": "unity_il2cpp_tracker.lua",
   "game_engines": [
     "unity-il2cpp"
   ],
