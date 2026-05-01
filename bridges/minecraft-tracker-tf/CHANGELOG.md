@@ -1,5 +1,8 @@
 # Changelog
 
+## v1.0.5 (2026-04-30)
+- Fix pollAttach nil-deref crash on Frida-side attach failure
+
 ## v1.0.4 (2026-04-30)
 - Migrate bridge Lua to new tuple-return Gamelink API (fixes attach retry storm)
 
