@@ -44,6 +44,10 @@ local function attach_with_retries()
                 end
 
                 local status, status_err = Gamelink.pollAttach()
+                if status_err then
+                    last_error = status_err
+                    break
+                end
                 if status.done then
                     if (not status_err) then
                         return true, nil

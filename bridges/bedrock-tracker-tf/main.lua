@@ -81,6 +81,10 @@ function init()
         while true do
             if check_cancel() then return end
             local status, status_err = Gamelink.pollAttach()
+            if status_err then
+                last_error = status_err
+                break
+            end
             if status.done then
                 if status_err then
                     Core.error("GameLink attach failed: " .. (status_err or "unknown"))

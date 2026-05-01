@@ -39,6 +39,10 @@ function init()
         while true do
             if cancelled() then return end
             local status, status_err = Gamelink.pollAttach()
+            if status_err then
+                last_error = status_err
+                break
+            end
             if status.done then
                 if status_err then
                     Bridge.shutdown("Attach failed: " .. tostring(status_err))
