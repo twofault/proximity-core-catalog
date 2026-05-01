@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-01T00:19:42.370249Z",
+  "generated_at": "2026-05-01T00:50:24.789725Z",
   "min_app_version": "0.1.0",
   "bridges": [
     {
@@ -19,8 +19,36 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/bedrock-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/bedrock-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/bedrock-tracker-tf",
-      "latest_version": "1.0.3",
+      "latest_version": "1.0.4",
       "versions": [
+        {
+          "version": "1.0.4",
+          "released_at": "2026-05-01T00:49:27Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/bedrock-tracker-tf/v1.0.4/bedrock-tracker-tf-1.0.4.zip",
+          "sha256": "912feaece8f4da9d5dddff163792ba3ea3d9ccf33f8a9c214463432b37d787ad",
+          "size_bytes": 7749,
+          "changelog": "- Migrate bridge Lua to new tuple-return Gamelink API (fixes attach retry storm)",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "custom"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "Minecraft.Windows.exe"
+                },
+                {
+                  "starts_with": "Minecraft.Windows"
+                }
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.3",
           "released_at": "2026-05-01T00:18:40Z",
@@ -152,8 +180,31 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/cs2-vision-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/cs2-vision-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/cs2-vision-tracker-tf",
-      "latest_version": "1.0.3",
+      "latest_version": "1.0.4",
       "versions": [
+        {
+          "version": "1.0.4",
+          "released_at": "2026-05-01T00:49:34Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/cs2-vision-tracker-tf/v1.0.4/cs2-vision-tracker-tf-1.0.4.zip",
+          "sha256": "8356dc782180b8dbf01769c2fa2c1e3b64d907e5424efb823a1381c97eecea28",
+          "size_bytes": 74824,
+          "changelog": "- Migrate bridge Lua to new tuple-return Gamelink API (fixes attach retry storm)",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "cs2.exe"
+                }
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.3",
           "released_at": "2026-05-01T00:18:46Z",
@@ -264,8 +315,36 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/dst-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/dst-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/dst-tracker-tf",
-      "latest_version": "1.0.3",
+      "latest_version": "1.0.4",
       "versions": [
+        {
+          "version": "1.0.4",
+          "released_at": "2026-05-01T00:49:50Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/dst-tracker-tf/v1.0.4/dst-tracker-tf-1.0.4.zip",
+          "sha256": "3f2981f71b155e637d82931086a5929c0182d626eea3884aa0665994bc571f8b",
+          "size_bytes": 15629,
+          "changelog": "- Migrate bridge Lua to new tuple-return Gamelink API (fixes attach retry storm)",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "lua_custom"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "dontstarve_steam.exe"
+                },
+                {
+                  "exact": "dontstarve_steam_x64.exe"
+                }
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.3",
           "released_at": "2026-05-01T00:19:00Z",
@@ -397,8 +476,38 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/il2cpp-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/il2cpp-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/il2cpp-tracker-tf",
-      "latest_version": "1.0.3",
+      "latest_version": "1.0.4",
       "versions": [
+        {
+          "version": "1.0.4",
+          "released_at": "2026-05-01T00:49:58Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/il2cpp-tracker-tf/v1.0.4/il2cpp-tracker-tf-1.0.4.zip",
+          "sha256": "6c22b5b0f3af8b396484728fd81cb930656a03528207be6de5516d8c76635682",
+          "size_bytes": 11119,
+          "changelog": "- Migrate bridge Lua to new tuple-return Gamelink API (fixes attach retry storm)",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "unity-il2cpp"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "none_of": [
+                {
+                  "contains": "crashhandler"
+                }
+              ]
+            },
+            "files": {
+              "require_any": [
+                "GameAssembly.dll"
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.3",
           "released_at": "2026-05-01T00:19:01Z",
@@ -536,8 +645,52 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/minecraft-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/minecraft-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/minecraft-tracker-tf",
-      "latest_version": "1.0.3",
+      "latest_version": "1.0.4",
       "versions": [
+        {
+          "version": "1.0.4",
+          "released_at": "2026-05-01T00:49:58Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/minecraft-tracker-tf/v1.0.4/minecraft-tracker-tf-1.0.4.zip",
+          "sha256": "d127b965c9d579050e7bf7897eb4d088abedfbbc703d9a172153af3e529bc32e",
+          "size_bytes": 10903,
+          "changelog": "- Migrate bridge Lua to new tuple-return Gamelink API (fixes attach retry storm)",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "java"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "javaw.exe"
+                },
+                {
+                  "exact": "java.exe"
+                }
+              ]
+            },
+            "window_title": {
+              "any_of": [
+                {
+                  "starts_with": "Minecraft"
+                }
+              ],
+              "none_of": [
+                {
+                  "contains": "Launcher"
+                }
+              ]
+            },
+            "structure": {
+              "ancestor_contains": ".minecraft",
+              "ancestor_depth": 6
+            }
+          }
+        },
         {
           "version": "1.0.3",
           "released_at": "2026-05-01T00:19:06Z",
@@ -734,8 +887,44 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/mono-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/mono-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/mono-tracker-tf",
-      "latest_version": "1.0.3",
+      "latest_version": "1.0.4",
       "versions": [
+        {
+          "version": "1.0.4",
+          "released_at": "2026-05-01T00:50:03Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/mono-tracker-tf/v1.0.4/mono-tracker-tf-1.0.4.zip",
+          "sha256": "209f291eb016909e7bfe32cbb5a85d3ce1782fcbf2f51fc56b31843895ed912a",
+          "size_bytes": 10900,
+          "changelog": "- Migrate bridge Lua to new tuple-return Gamelink API (fixes attach retry storm)",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "unity-mono"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "none_of": [
+                {
+                  "contains": "crashhandler"
+                }
+              ]
+            },
+            "structure": {
+              "sibling_pattern": "*_Data"
+            },
+            "files": {
+              "require_all": [
+                "{sibling}/Managed/Assembly-CSharp.dll"
+              ],
+              "forbid": [
+                "GameAssembly.dll"
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.3",
           "released_at": "2026-05-01T00:19:15Z",
@@ -897,8 +1086,33 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/terraria-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/terraria-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/terraria-tracker-tf",
-      "latest_version": "1.0.3",
+      "latest_version": "1.0.4",
       "versions": [
+        {
+          "version": "1.0.4",
+          "released_at": "2026-05-01T00:50:16Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/terraria-tracker-tf/v1.0.4/terraria-tracker-tf-1.0.4.zip",
+          "sha256": "fc0be88d8f616de43d4c476effda5ee7c130cfcf6838316749b6e44054ada593",
+          "size_bytes": 11882,
+          "changelog": "- Migrate bridge Lua to new tuple-return Gamelink API (fixes attach retry storm)",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "dotnet_framework"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "Terraria.exe"
+                }
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.3",
           "released_at": "2026-05-01T00:19:21Z",
