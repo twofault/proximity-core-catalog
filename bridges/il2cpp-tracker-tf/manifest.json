@@ -2,7 +2,7 @@
   "id": "il2cpp-tracker-tf",
   "name": "Unity IL2CPP Tracker",
   "description": "Tracks camera position in Unity games using IL2CPP runtime",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "author": "twofault",
   "entry": "main.lua",
   "gamelink_script": "unity_il2cpp_tracker.lua",
