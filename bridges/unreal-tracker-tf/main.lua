@@ -118,19 +118,19 @@ function init()
     Bridge.setProgress("Attaching to process...", 45, 3)
     Core.log("Attaching Frida to PID " .. tostring(pid) .. "...")
 
-    local attach_result = Gamelink.attach({ timeout_ms = ATTACH_TIMEOUT_MS })
-    if not attach_result.success then
-        Core.error("Failed to attach Frida: " .. (attach_result.error or "unknown"))
+    local attach_result, attach_result_err = Gamelink.attach({ timeout_ms = ATTACH_TIMEOUT_MS })
+    if attach_result_err then
+        Core.error("Failed to attach Frida: " .. (attach_result_err or "unknown"))
         Bridge.shutdown("GameLink attach failed")
         return
     end
     if attach_result.pending then
         while true do
             if check_cancel() then return end
-            local status = Gamelink.pollAttach()
+            local status, status_err = Gamelink.pollAttach()
             if status.done then
-                if not status.success then
-                    Core.error("GameLink attach failed: " .. (status.error or "unknown"))
+                if status_err then
+                    Core.error("GameLink attach failed: " .. (status_err or "unknown"))
                     Bridge.shutdown("GameLink attach failed")
                     return
                 end
@@ -145,33 +145,31 @@ function init()
     if check_cancel() then return end
 
     Bridge.setProgress("Loading engine agent...", 60, 1)
-    local load_result = Gamelink.load("ue_engine.lua", {
+    local load_result_handle, load_result_err = Gamelink.loadScript("ue_engine.lua", {
         runtime = "lua",
-        capability = "observe",
     })
-    if not load_result.success then
-        Core.warn("Lua engine load failed: " .. tostring(load_result.error))
+    if load_result_err then
+        Core.warn("Lua engine load failed: " .. tostring(load_result_err))
 
         -- Fallback: legacy JS tracker with Dumper-7 flow
         Core.log("Falling back to legacy JS tracker...")
-        load_result = Gamelink.load("unreal_tracker.js", {
+        load_result = Gamelink.loadScript("unreal_tracker.js", {
             runtime = "default",
-            capability = "observe",
         })
-        if not load_result.success then
-            Core.error("Failed to load any tracker: " .. tostring(load_result.error))
+        if load_result_err then
+            Core.error("Failed to load any tracker: " .. tostring(load_result_err))
             Gamelink.detach()
             Bridge.shutdown("Tracker load failed")
             return
         end
-        script_handle = load_result.handle
+        script_handle = load_result_handle
         use_pull_ticks = false
         Core.log("Legacy JS tracker loaded")
         Bridge.setProgressSnap("Connected (legacy mode)!", 100)
         return
     end
 
-    script_handle = load_result.handle
+    script_handle = load_result_handle
     use_pull_ticks = true
     tick_in_flight = false
     tick_wait_seconds = 0
@@ -195,9 +193,9 @@ function init()
         Bridge.setProgressFooter("First connection (or after game update) requires scanning. Future connections will be almost instant.")
     end
 
-    local send_result = Gamelink.send(script_handle, init_message)
-    if not send_result.success then
-        Core.error("Failed to send init: " .. tostring(send_result.error or "unknown"))
+    local send_result_ok, send_result_err = Gamelink.send(script_handle, init_message)
+    if send_result_err then
+        Core.error("Failed to send init: " .. tostring(send_result_err or "unknown"))
         Gamelink.detach()
         Bridge.shutdown("Init send failed")
         return
@@ -261,7 +259,7 @@ function init()
 
     if not init_ok then
         Core.error("Engine initialization failed or timed out")
-        Gamelink.unload(script_handle)
+        Gamelink.unloadScript(script_handle)
         script_handle = nil
         Gamelink.detach()
         Bridge.shutdown("Could not find player data. If you are in a menu, try joining a game first and reconnecting.")
@@ -269,13 +267,13 @@ function init()
     end
 
     -- Prime the first tick
-    local tick_result = Gamelink.post(script_handle, {
+    local tick_result_ok, tick_result_err = Gamelink.send(script_handle, {
         type = "tick",
         now_ms = Core.getTimeMillis(),
     })
-    if not tick_result.success then
-        Core.error("Failed to prime tick: " .. (tick_result.error or "unknown"))
-        Gamelink.unload(script_handle)
+    if tick_result_err then
+        Core.error("Failed to prime tick: " .. (tick_result_err or "unknown"))
+        Gamelink.unloadScript(script_handle)
         script_handle = nil
         Gamelink.detach()
         Bridge.shutdown("Failed to prime tracker")
@@ -378,12 +376,12 @@ function update(dt)
         end
 
         if not tick_in_flight then
-            local tick_result = Gamelink.post(script_handle, {
+            local tick_result_ok, tick_result_err = Gamelink.send(script_handle, {
                 type = "tick",
                 now_ms = Core.getTimeMillis(),
             })
-            if not tick_result.success then
-                Core.error("Failed to request tracker tick: " .. (tick_result.error or "unknown"))
+            if tick_result_err then
+                Core.error("Failed to request tracker tick: " .. (tick_result_err or "unknown"))
                 Bridge.shutdown("Tracker communication failed")
                 return
             end
@@ -399,9 +397,9 @@ function dispose()
     pcall(function()
         if script_handle then
             pcall(function()
-                Gamelink.post(script_handle, { type = "shutdown" })
+                Gamelink.send(script_handle, { type = "shutdown" })
             end)
-            Gamelink.unload(script_handle)
+            Gamelink.unloadScript(script_handle)
             script_handle = nil
         end
 

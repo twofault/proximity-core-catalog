@@ -71,19 +71,19 @@ function init()
     if check_cancel() then return end
 
     Bridge.setProgress("Attaching to process...", 40, 3)
-    local attach_result = Gamelink.attach({ timeout_ms = ATTACH_TIMEOUT_MS })
-    if not attach_result.success then
-        Core.error("GameLink attach failed: " .. (attach_result.error or "unknown"))
+    local attach_result, attach_result_err = Gamelink.attach({ timeout_ms = ATTACH_TIMEOUT_MS })
+    if attach_result_err then
+        Core.error("GameLink attach failed: " .. (attach_result_err or "unknown"))
         Bridge.shutdown("GameLink attach failed")
         return
     end
     if attach_result.pending then
         while true do
             if check_cancel() then return end
-            local status = Gamelink.pollAttach()
+            local status, status_err = Gamelink.pollAttach()
             if status.done then
-                if not status.success then
-                    Core.error("GameLink attach failed: " .. (status.error or "unknown"))
+                if status_err then
+                    Core.error("GameLink attach failed: " .. (status_err or "unknown"))
                     Bridge.shutdown("GameLink attach failed")
                     return
                 end
@@ -98,17 +98,16 @@ function init()
     if check_cancel() then return end
 
     Bridge.setProgress("Loading tracker agent...", 60, 1)
-    local load_result = Gamelink.load("bedrock_tracker.lua", {
+    local load_result_handle, load_result_err = Gamelink.loadScript("bedrock_tracker.lua", {
         runtime = "lua",
-        capability = "observe",
     })
-    if not load_result.success then
-        Core.error("Failed to load tracker: " .. tostring(load_result.error))
+    if load_result_err then
+        Core.error("Failed to load tracker: " .. tostring(load_result_err))
         Gamelink.detach()
         Bridge.shutdown("Tracker load failed")
         return
     end
-    script_handle = load_result.handle
+    script_handle = load_result_handle
     Core.log("Agent loaded (handle: " .. tostring(script_handle) .. ")")
 
     if check_cancel() then return end
@@ -126,10 +125,10 @@ function init()
         init_msg.data = cached_offset
     end
 
-    local send_result = Gamelink.send(script_handle, init_msg)
-    if not send_result.success then
-        Core.error("Failed to send init: " .. tostring(send_result.error))
-        Gamelink.unload(script_handle)
+    local send_result_ok, send_result_err = Gamelink.send(script_handle, init_msg)
+    if send_result_err then
+        Core.error("Failed to send init: " .. tostring(send_result_err))
+        Gamelink.unloadScript(script_handle)
         script_handle = nil
         Gamelink.detach()
         Bridge.shutdown("Init send failed")
@@ -184,20 +183,20 @@ function init()
 
     if not init_ok then
         Core.error("Initialization failed")
-        Gamelink.unload(script_handle)
+        Gamelink.unloadScript(script_handle)
         script_handle = nil
         Gamelink.detach()
         Bridge.shutdown("Could not find camera data. Tips: be in a world (not the main menu), look around and walk during connection, and stay away from coordinates 0,0. If the position seems wrong, use Edit Game > Clear Cache and reconnect.")
         return
     end
 
-    local tick_result = Gamelink.post(script_handle, {
+    local tick_result_ok, tick_result_err = Gamelink.send(script_handle, {
         type = "tick",
         now_ms = Core.getTimeMillis(),
     })
-    if not tick_result.success then
+    if tick_result_err then
         Core.error("Failed to prime tick")
-        Gamelink.unload(script_handle)
+        Gamelink.unloadScript(script_handle)
         script_handle = nil
         Gamelink.detach()
         Bridge.shutdown("Tracker communication failed")
@@ -301,11 +300,11 @@ function update(dt)
     end
 
     if not tick_in_flight then
-        local tick_result = Gamelink.post(script_handle, {
+        local tick_result_ok, tick_result_err = Gamelink.send(script_handle, {
             type = "tick",
             now_ms = Core.getTimeMillis(),
         })
-        if not tick_result.success then
+        if tick_result_err then
             Core.error("Tick failed")
             Bridge.shutdown("Tracker communication failed")
             return
@@ -320,9 +319,9 @@ function dispose()
     pcall(function()
         if script_handle then
             pcall(function()
-                Gamelink.post(script_handle, { type = "shutdown" })
+                Gamelink.send(script_handle, { type = "shutdown" })
             end)
-            Gamelink.unload(script_handle)
+            Gamelink.unloadScript(script_handle)
             script_handle = nil
         end
         if Gamelink.isAttached() then

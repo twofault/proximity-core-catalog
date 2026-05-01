@@ -30,18 +30,18 @@ function init()
     Bridge.setProgress("Attaching...", 40, 3)
     if cancelled() then return end
 
-    local attach = Gamelink.attach({ timeout_ms = ATTACH_TIMEOUT_MS })
-    if not attach.success then
-        Bridge.shutdown("Attach failed: " .. tostring(attach.error))
+    local attach, attach_err = Gamelink.attach({ timeout_ms = ATTACH_TIMEOUT_MS })
+    if attach_err then
+        Bridge.shutdown("Attach failed: " .. tostring(attach_err))
         return
     end
     if attach.pending then
         while true do
             if cancelled() then return end
-            local status = Gamelink.pollAttach()
+            local status, status_err = Gamelink.pollAttach()
             if status.done then
-                if not status.success then
-                    Bridge.shutdown("Attach failed: " .. tostring(status.error))
+                if status_err then
+                    Bridge.shutdown("Attach failed: " .. tostring(status_err))
                     return
                 end
                 break
@@ -54,23 +54,22 @@ function init()
     if cancelled() then return end
 
     Bridge.setProgress("Loading tracker...", 60, 1)
-    local load = Gamelink.load("terraria_tracker.lua", {
+    local load_handle, load_err = Gamelink.loadScript("terraria_tracker.lua", {
         runtime = "lua",
-        capability = "invoke",
     })
-    if not load.success then
+    if load_err then
         Gamelink.detach()
-        Bridge.shutdown("Load failed: " .. tostring(load.error))
+        Bridge.shutdown("Load failed: " .. tostring(load_err))
         return
     end
-    handle = load.handle
+    handle = load_handle
 
     if cancelled() then return end
 
     Bridge.setProgress("Scanning game memory...", 80, 5)
-    local ok = Gamelink.send(handle, { type = "init" })
-    if not ok.success then
-        Gamelink.unload(handle)
+    local ok_ok, ok_err = Gamelink.send(handle, { type = "init" })
+    if ok_err then
+        Gamelink.unloadScript(handle)
         handle = nil
         Gamelink.detach()
         Bridge.shutdown("Send failed")
@@ -176,11 +175,11 @@ function update(dt)
     end
 
     if not tick_in_flight then
-        local ok = Gamelink.send(handle, {
+        local ok_ok, ok_err = Gamelink.send(handle, {
             type = "tick",
             now_ms = Core.getTimeMillis(),
         })
-        if not ok.success then
+        if ok_err then
             Bridge.shutdown("Tick failed")
             return
         end
@@ -193,7 +192,7 @@ function dispose()
     pcall(function()
         if handle then
             Gamelink.send(handle, { type = "dispose" })
-            Gamelink.unload(handle)
+            Gamelink.unloadScript(handle)
             handle = nil
         end
         if Gamelink.is_attached() then

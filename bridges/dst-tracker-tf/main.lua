@@ -53,19 +53,19 @@ function init()
 
     Bridge.setProgress("Attaching to process...", 40, 3)
 
-    local attach_result = Gamelink.attach({ timeout_ms = ATTACH_TIMEOUT_MS })
-    if not attach_result.success then
-        Core.error("Failed to attach Frida: " .. (attach_result.error or "unknown"))
+    local attach_result, attach_result_err = Gamelink.attach({ timeout_ms = ATTACH_TIMEOUT_MS })
+    if attach_result_err then
+        Core.error("Failed to attach Frida: " .. (attach_result_err or "unknown"))
         Bridge.shutdown("GameLink attach failed")
         return
     end
     if attach_result.pending then
         while true do
             if check_cancel() then return end
-            local status = Gamelink.pollAttach()
+            local status, status_err = Gamelink.pollAttach()
             if status.done then
-                if not status.success then
-                    Core.error("GameLink attach failed: " .. (status.error or "unknown"))
+                if status_err then
+                    Core.error("GameLink attach failed: " .. (status_err or "unknown"))
                     Bridge.shutdown("GameLink attach failed")
                     return
                 end
@@ -80,27 +80,26 @@ function init()
     if check_cancel() then return end
 
     Bridge.setProgress("Loading tracker script...", 55, 1)
-    local load_result = Gamelink.loadScript("dst_tracker.lua")
-    if load_result.success then
+    local load_result_handle, load_result_err = Gamelink.loadScript("dst_tracker.lua")
+    if not load_result_err then
         script_mode = "lua"
     else
-        Core.warn("Lua agent load failed, falling back to JS: " .. tostring(load_result.error))
-        load_result = Gamelink.loadScript("dst_tracker.js", {
+        Core.warn("Lua agent load failed, falling back to JS: " .. tostring(load_result_err))
+        load_result_handle, load_result_err = Gamelink.loadScript("dst_tracker.js", {
             runtime = "default",
-            capability = "observe"
         })
-        if load_result.success then
+        if not load_result_err then
             script_mode = "js"
         end
     end
 
-    if not load_result.success then
-        Core.error("Failed to load Frida script: " .. (load_result.error or "unknown"))
+    if load_result_err then
+        Core.error("Failed to load Frida script: " .. (load_result_err or "unknown"))
         Gamelink.detach()
         Bridge.shutdown("Script load failed")
         return
     end
-    script_handle = load_result.handle
+    script_handle = load_result_handle
     Core.log("GameLink script loaded (mode: " .. script_mode .. ", handle: " .. tostring(script_handle) .. ")")
 
     if check_cancel() then return end
@@ -111,9 +110,9 @@ function init()
         type = "init",
         now_ms = Core.getTimeMillis()
     }
-    local send_result = Gamelink.send(script_handle, init_message)
-    if not send_result.success then
-        Core.error("Failed to send init message: " .. (send_result.error or "unknown"))
+    local send_result_ok, send_result_err = Gamelink.send(script_handle, init_message)
+    if send_result_err then
+        Core.error("Failed to send init message: " .. (send_result_err or "unknown"))
         Gamelink.detach()
         Bridge.shutdown("Failed to send init message")
         return
@@ -139,21 +138,20 @@ function init()
         end)
         script_handle = nil
 
-        local js_load = Gamelink.loadScript("dst_tracker.js", {
+        local js_load_handle, js_load_err = Gamelink.loadScript("dst_tracker.js", {
             runtime = "default",
-            capability = "observe"
         })
-        if not js_load.success then
-            Core.error("Failed to load JS fallback script: " .. tostring(js_load.error))
+        if js_load_err then
+            Core.error("Failed to load JS fallback script: " .. tostring(js_load_err))
             return false
         end
 
-        script_handle = js_load.handle
+        script_handle = js_load_handle
         script_mode = "js"
 
-        local js_init_send = Gamelink.send(script_handle, init_message)
-        if not js_init_send.success then
-            Core.error("Failed to send init to JS fallback: " .. tostring(js_init_send.error))
+        local js_init_send_ok, js_init_send_err = Gamelink.send(script_handle, init_message)
+        if js_init_send_err then
+            Core.error("Failed to send init to JS fallback: " .. tostring(js_init_send_err))
             return false
         end
 
@@ -166,7 +164,7 @@ function init()
 
         -- Send tick messages during init (the compliant Lua agent does synchronous
         -- init in its recv handler, but ticks also drive the fallback state machine)
-        local _ = Gamelink.send(script_handle, {
+        local __ok, __err = Gamelink.send(script_handle, {
             type = "tick",
             now_ms = Core.getTimeMillis()
         })
@@ -270,7 +268,7 @@ function update(dt)
     -- Send tick messages continuously. The compliant Lua agent uses tick-driven
     -- polling (no interceptor self-polling), so ticks are needed both during
     -- init and after. The JS fallback handles ticks gracefully when not needed.
-    local _ = Gamelink.send(script_handle, {
+    local __ok, __err = Gamelink.send(script_handle, {
         type = "tick",
         now_ms = Core.getTimeMillis()
     })

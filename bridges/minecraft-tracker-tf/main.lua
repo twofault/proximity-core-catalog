@@ -399,19 +399,19 @@ function init()
     Bridge.setProgress("Attaching to process...", 93, 2)
     Core.log("Attaching Frida to PID " .. tostring(pid) .. "...")
 
-    local attach_result = Gamelink.attach({ timeout_ms = ATTACH_TIMEOUT_MS })
-    if not attach_result.success then
-        Core.error("Failed to attach Frida: " .. (attach_result.error or "unknown"))
+    local attach_result, attach_result_err = Gamelink.attach({ timeout_ms = ATTACH_TIMEOUT_MS })
+    if attach_result_err then
+        Core.error("Failed to attach Frida: " .. (attach_result_err or "unknown"))
         Bridge.shutdown("GameLink attach failed")
         return
     end
     if attach_result.pending then
         while true do
             if check_cancel() then return end
-            local status = Gamelink.pollAttach()
+            local status, status_err = Gamelink.pollAttach()
             if status.done then
-                if not status.success then
-                    Core.error("GameLink attach failed: " .. (status.error or "unknown"))
+                if status_err then
+                    Core.error("GameLink attach failed: " .. (status_err or "unknown"))
                     Bridge.shutdown("GameLink attach failed")
                     return
                 end
@@ -426,14 +426,14 @@ function init()
     if check_cancel() then return end
 
     Bridge.setProgress("Loading tracker script...", 95, 1)
-    local load_result = Gamelink.loadScript("minecraft_tracker.lua")
-    if not load_result.success then
-        Core.error("Failed to load Frida script: " .. (load_result.error or "unknown"))
+    local load_result_handle, load_result_err = Gamelink.loadScript("minecraft_tracker.lua")
+    if load_result_err then
+        Core.error("Failed to load Frida script: " .. (load_result_err or "unknown"))
         Gamelink.detach()
         Bridge.shutdown("Script load failed")
         return
     end
-    script_handle = load_result.handle
+    script_handle = load_result_handle
     Core.log("GameLink script loaded (handle: " .. tostring(script_handle) .. ")")
 
     if check_cancel() then return end
@@ -454,9 +454,9 @@ function init()
         data = init_data
     }
     Core.log("Sending init message to Frida script...")
-    local send_result = Gamelink.send(script_handle, init_message)
-    if not send_result.success then
-        Core.error("Failed to send init data: " .. (send_result.error or "unknown"))
+    local send_result_ok, send_result_err = Gamelink.send(script_handle, init_message)
+    if send_result_err then
+        Core.error("Failed to send init data: " .. (send_result_err or "unknown"))
         Gamelink.detach()
         Bridge.shutdown("Failed to send mappings")
         return
