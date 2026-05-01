@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-01T00:50:24.789725Z",
+  "generated_at": "2026-05-01T01:54:14.846007Z",
   "min_app_version": "0.1.0",
   "bridges": [
     {
@@ -19,8 +19,36 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/bedrock-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/bedrock-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/bedrock-tracker-tf",
-      "latest_version": "1.0.4",
+      "latest_version": "1.0.5",
       "versions": [
+        {
+          "version": "1.0.5",
+          "released_at": "2026-05-01T01:53:24Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/bedrock-tracker-tf/v1.0.5/bedrock-tracker-tf-1.0.5.zip",
+          "sha256": "7339d533a5ad868bf01a49c714834c344b9a677b7da9257020f96c210e5b357d",
+          "size_bytes": 7799,
+          "changelog": "- Fix pollAttach nil-deref crash on Frida-side attach failure",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "custom"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "Minecraft.Windows.exe"
+                },
+                {
+                  "starts_with": "Minecraft.Windows"
+                }
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.4",
           "released_at": "2026-05-01T00:49:27Z",
@@ -180,8 +208,31 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/cs2-vision-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/cs2-vision-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/cs2-vision-tracker-tf",
-      "latest_version": "1.0.4",
+      "latest_version": "1.0.5",
       "versions": [
+        {
+          "version": "1.0.5",
+          "released_at": "2026-05-01T01:53:37Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/cs2-vision-tracker-tf/v1.0.5/cs2-vision-tracker-tf-1.0.5.zip",
+          "sha256": "c5580b1fd5ade6c0734e490de25a46db925510f61da32fd667fe4752197d11f4",
+          "size_bytes": 74863,
+          "changelog": "- Fix pollAttach nil-deref crash on Frida-side attach failure",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "cs2.exe"
+                }
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.4",
           "released_at": "2026-05-01T00:49:34Z",
@@ -315,8 +366,36 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/dst-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/dst-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/dst-tracker-tf",
-      "latest_version": "1.0.4",
+      "latest_version": "1.0.5",
       "versions": [
+        {
+          "version": "1.0.5",
+          "released_at": "2026-05-01T01:53:39Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/dst-tracker-tf/v1.0.5/dst-tracker-tf-1.0.5.zip",
+          "sha256": "0de5228654e0d785927b59a81f2cb5f14e9cc3137b6f696fae984ea5f4276efa",
+          "size_bytes": 15684,
+          "changelog": "- Fix pollAttach nil-deref crash on Frida-side attach failure",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "lua_custom"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "dontstarve_steam.exe"
+                },
+                {
+                  "exact": "dontstarve_steam_x64.exe"
+                }
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.4",
           "released_at": "2026-05-01T00:49:50Z",
@@ -476,8 +555,38 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/il2cpp-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/il2cpp-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/il2cpp-tracker-tf",
-      "latest_version": "1.0.4",
+      "latest_version": "1.0.5",
       "versions": [
+        {
+          "version": "1.0.5",
+          "released_at": "2026-05-01T01:53:53Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/il2cpp-tracker-tf/v1.0.5/il2cpp-tracker-tf-1.0.5.zip",
+          "sha256": "e35f87b0927e2fad3fced140ac9cd722fcfecbbb583c7ffa0776c631d6570271",
+          "size_bytes": 11167,
+          "changelog": "- Fix pollAttach nil-deref crash on Frida-side attach failure",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "unity-il2cpp"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "none_of": [
+                {
+                  "contains": "crashhandler"
+                }
+              ]
+            },
+            "files": {
+              "require_any": [
+                "GameAssembly.dll"
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.4",
           "released_at": "2026-05-01T00:49:58Z",
@@ -645,8 +754,52 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/minecraft-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/minecraft-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/minecraft-tracker-tf",
-      "latest_version": "1.0.4",
+      "latest_version": "1.0.5",
       "versions": [
+        {
+          "version": "1.0.5",
+          "released_at": "2026-05-01T01:53:51Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/minecraft-tracker-tf/v1.0.5/minecraft-tracker-tf-1.0.5.zip",
+          "sha256": "03f10789e65f45b222dc8cfdd2270ba0ab9af59384adacf21b2554976ddc18d6",
+          "size_bytes": 10956,
+          "changelog": "- Fix pollAttach nil-deref crash on Frida-side attach failure",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "java"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "javaw.exe"
+                },
+                {
+                  "exact": "java.exe"
+                }
+              ]
+            },
+            "window_title": {
+              "any_of": [
+                {
+                  "starts_with": "Minecraft"
+                }
+              ],
+              "none_of": [
+                {
+                  "contains": "Launcher"
+                }
+              ]
+            },
+            "structure": {
+              "ancestor_contains": ".minecraft",
+              "ancestor_depth": 6
+            }
+          }
+        },
         {
           "version": "1.0.4",
           "released_at": "2026-05-01T00:49:58Z",
@@ -887,8 +1040,44 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/mono-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/mono-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/mono-tracker-tf",
-      "latest_version": "1.0.4",
+      "latest_version": "1.0.5",
       "versions": [
+        {
+          "version": "1.0.5",
+          "released_at": "2026-05-01T01:54:06Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/mono-tracker-tf/v1.0.5/mono-tracker-tf-1.0.5.zip",
+          "sha256": "581ca67c10323b54ab662647e13b3a2adb811b7522c1ddc8c6579ceb5546d6ec",
+          "size_bytes": 10947,
+          "changelog": "- Fix pollAttach nil-deref crash on Frida-side attach failure",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "unity-mono"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "none_of": [
+                {
+                  "contains": "crashhandler"
+                }
+              ]
+            },
+            "structure": {
+              "sibling_pattern": "*_Data"
+            },
+            "files": {
+              "require_all": [
+                "{sibling}/Managed/Assembly-CSharp.dll"
+              ],
+              "forbid": [
+                "GameAssembly.dll"
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.4",
           "released_at": "2026-05-01T00:50:03Z",
@@ -1234,8 +1423,57 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/unreal-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/unreal-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/unreal-tracker-tf",
-      "latest_version": "1.0.3",
+      "latest_version": "1.0.4",
       "versions": [
+        {
+          "version": "1.0.4",
+          "released_at": "2026-05-01T00:50:20Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/unreal-tracker-tf/v1.0.4/unreal-tracker-tf-1.0.4.zip",
+          "sha256": "513aa02d91161a6cd12285e4c5aff9d21a61e606a54dae31d4ebadc9c22bad0e",
+          "size_bytes": 23780,
+          "changelog": "- Migrate bridge Lua to new tuple-return Gamelink API (fixes attach retry storm)",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "unreal"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "none_of": [
+                {
+                  "contains": "CrashReportClient"
+                },
+                {
+                  "contains": "EpicWebHelper"
+                },
+                {
+                  "contains": "EOSOverlay"
+                },
+                {
+                  "contains": "EasyAntiCheat"
+                },
+                {
+                  "contains": "BEService"
+                },
+                {
+                  "contains": "UE4PrereqSetup"
+                },
+                {
+                  "contains": "UnrealCEFSubProcess"
+                }
+              ]
+            },
+            "structure": {
+              "ancestor_file_exists": [
+                "Engine"
+              ],
+              "ancestor_depth": 5
+            }
+          }
+        },
         {
           "version": "1.0.3",
           "released_at": "2026-05-01T00:19:34Z",
