@@ -2,7 +2,7 @@
   "id": "cs2-vision-tracker-tf",
   "name": "Counter-Strike 2 (Vision)",
   "description": "Extracts player position from CS2 minimap using computer vision - no memory reading required",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "author": "twofault",
   "entry": "main.lua",
   "game_engines": [],
@@ -18,7 +18,11 @@
       ]
     }
   },
-  "uses_blockable_apis": false,
+  "capabilities": {
+    "uses_blockable_apis": false,
+    "uses_game_session": false
+  },
+  "http_endpoints": [],
   "warn_on_unlisted_targets": false,
   "bridge_scope": "game_specific",
   "tags": [
