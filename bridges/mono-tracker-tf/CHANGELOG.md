@@ -1,5 +1,8 @@
 # Changelog
 
+## v1.0.3 (2026-04-30)
+- Migrate manifests to capabilities block + http_endpoints (Phase 4.1)
+
 ## v1.0.2 (2026-04-22)
 - Bump engine tick to 60Hz + clean up bridge scripts
 
