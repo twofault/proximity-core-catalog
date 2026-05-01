@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-01T01:54:14.846007Z",
+  "generated_at": "2026-05-01T01:54:31.761632Z",
   "min_app_version": "0.1.0",
   "bridges": [
     {
@@ -1275,8 +1275,33 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/terraria-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/terraria-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/terraria-tracker-tf",
-      "latest_version": "1.0.4",
+      "latest_version": "1.0.5",
       "versions": [
+        {
+          "version": "1.0.5",
+          "released_at": "2026-05-01T01:54:08Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/terraria-tracker-tf/v1.0.5/terraria-tracker-tf-1.0.5.zip",
+          "sha256": "251a20263e593f179d0892576cf2806ece2bf8e32098bed6dde7d1cff64bdc2d",
+          "size_bytes": 11933,
+          "changelog": "- Fix pollAttach nil-deref crash on Frida-side attach failure",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "dotnet_framework"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "Terraria.exe"
+                }
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.4",
           "released_at": "2026-05-01T00:50:16Z",
@@ -1423,8 +1448,57 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/unreal-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/unreal-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/unreal-tracker-tf",
-      "latest_version": "1.0.4",
+      "latest_version": "1.0.5",
       "versions": [
+        {
+          "version": "1.0.5",
+          "released_at": "2026-05-01T01:54:20Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/unreal-tracker-tf/v1.0.5/unreal-tracker-tf-1.0.5.zip",
+          "sha256": "0ed69af48379934bc181892bd0c7ff137c9c55c3a4f338af0bdc2d7b32ce8dc7",
+          "size_bytes": 23829,
+          "changelog": "- Fix pollAttach nil-deref crash on Frida-side attach failure",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "unreal"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "none_of": [
+                {
+                  "contains": "CrashReportClient"
+                },
+                {
+                  "contains": "EpicWebHelper"
+                },
+                {
+                  "contains": "EOSOverlay"
+                },
+                {
+                  "contains": "EasyAntiCheat"
+                },
+                {
+                  "contains": "BEService"
+                },
+                {
+                  "contains": "UE4PrereqSetup"
+                },
+                {
+                  "contains": "UnrealCEFSubProcess"
+                }
+              ]
+            },
+            "structure": {
+              "ancestor_file_exists": [
+                "Engine"
+              ],
+              "ancestor_depth": 5
+            }
+          }
+        },
         {
           "version": "1.0.4",
           "released_at": "2026-05-01T00:50:20Z",
