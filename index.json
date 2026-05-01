@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-01T00:19:27.757887Z",
+  "generated_at": "2026-05-01T00:19:42.370249Z",
   "min_app_version": "0.1.0",
   "bridges": [
     {
@@ -1020,8 +1020,57 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/unreal-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/unreal-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/unreal-tracker-tf",
-      "latest_version": "1.0.2",
+      "latest_version": "1.0.3",
       "versions": [
+        {
+          "version": "1.0.3",
+          "released_at": "2026-05-01T00:19:34Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/unreal-tracker-tf/v1.0.3/unreal-tracker-tf-1.0.3.zip",
+          "sha256": "72b31feb36154d88898a14af41af6785cb07a2d4865e232cc08e3f3a4dcaf798",
+          "size_bytes": 23736,
+          "changelog": "- Migrate manifests to capabilities block + http_endpoints (Phase 4.1)",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "unreal"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "none_of": [
+                {
+                  "contains": "CrashReportClient"
+                },
+                {
+                  "contains": "EpicWebHelper"
+                },
+                {
+                  "contains": "EOSOverlay"
+                },
+                {
+                  "contains": "EasyAntiCheat"
+                },
+                {
+                  "contains": "BEService"
+                },
+                {
+                  "contains": "UE4PrereqSetup"
+                },
+                {
+                  "contains": "UnrealCEFSubProcess"
+                }
+              ]
+            },
+            "structure": {
+              "ancestor_file_exists": [
+                "Engine"
+              ],
+              "ancestor_depth": 5
+            }
+          }
+        },
         {
           "version": "1.0.2",
           "released_at": "2026-04-22T20:36:28Z",
