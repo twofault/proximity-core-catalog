@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-04-23T00:45:12.242910Z",
+  "generated_at": "2026-05-01T00:19:27.757887Z",
   "min_app_version": "0.1.0",
   "bridges": [
     {
@@ -19,8 +19,36 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/bedrock-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/bedrock-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/bedrock-tracker-tf",
-      "latest_version": "1.0.2",
+      "latest_version": "1.0.3",
       "versions": [
+        {
+          "version": "1.0.3",
+          "released_at": "2026-05-01T00:18:40Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/bedrock-tracker-tf/v1.0.3/bedrock-tracker-tf-1.0.3.zip",
+          "sha256": "8401911590da251124e3ec31b193a5ac277bd76e41b5e6071fc82692c7c13966",
+          "size_bytes": 7701,
+          "changelog": "- Migrate manifests to capabilities block + http_endpoints (Phase 4.1)",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "custom"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "Minecraft.Windows.exe"
+                },
+                {
+                  "starts_with": "Minecraft.Windows"
+                }
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.2",
           "released_at": "2026-04-22T20:33:44Z",
@@ -124,8 +152,31 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/cs2-vision-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/cs2-vision-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/cs2-vision-tracker-tf",
-      "latest_version": "1.0.2",
+      "latest_version": "1.0.3",
       "versions": [
+        {
+          "version": "1.0.3",
+          "released_at": "2026-05-01T00:18:46Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/cs2-vision-tracker-tf/v1.0.3/cs2-vision-tracker-tf-1.0.3.zip",
+          "sha256": "1fd8fe6bdf4d306e82ddc3d16253a5586c2a89e0de603f91ee0092c6d2c048aa",
+          "size_bytes": 74782,
+          "changelog": "- Migrate manifests to capabilities block + http_endpoints (Phase 4.1)",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "cs2.exe"
+                }
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.2",
           "released_at": "2026-04-22T20:34:00Z",
@@ -213,8 +264,36 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/dst-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/dst-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/dst-tracker-tf",
-      "latest_version": "1.0.2",
+      "latest_version": "1.0.3",
       "versions": [
+        {
+          "version": "1.0.3",
+          "released_at": "2026-05-01T00:19:00Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/dst-tracker-tf/v1.0.3/dst-tracker-tf-1.0.3.zip",
+          "sha256": "fb402f99b452730869c73a3bb52bb5b7d40dd96b8b75aeadf787d9418acd38d1",
+          "size_bytes": 15572,
+          "changelog": "- Migrate manifests to capabilities block + http_endpoints (Phase 4.1)",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "lua_custom"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "dontstarve_steam.exe"
+                },
+                {
+                  "exact": "dontstarve_steam_x64.exe"
+                }
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.2",
           "released_at": "2026-04-22T20:33:58Z",
@@ -318,8 +397,38 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/il2cpp-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/il2cpp-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/il2cpp-tracker-tf",
-      "latest_version": "1.0.2",
+      "latest_version": "1.0.3",
       "versions": [
+        {
+          "version": "1.0.3",
+          "released_at": "2026-05-01T00:19:01Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/il2cpp-tracker-tf/v1.0.3/il2cpp-tracker-tf-1.0.3.zip",
+          "sha256": "184eabdd888c20cdb7525fd599152a23f6b770769916f29e59ab0cf98f10f439",
+          "size_bytes": 11066,
+          "changelog": "- Migrate manifests to capabilities block + http_endpoints (Phase 4.1)",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "unity-il2cpp"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "none_of": [
+                {
+                  "contains": "crashhandler"
+                }
+              ]
+            },
+            "files": {
+              "require_any": [
+                "GameAssembly.dll"
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.2",
           "released_at": "2026-04-22T20:34:07Z",
@@ -427,8 +536,52 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/minecraft-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/minecraft-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/minecraft-tracker-tf",
-      "latest_version": "1.0.2",
+      "latest_version": "1.0.3",
       "versions": [
+        {
+          "version": "1.0.3",
+          "released_at": "2026-05-01T00:19:06Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/minecraft-tracker-tf/v1.0.3/minecraft-tracker-tf-1.0.3.zip",
+          "sha256": "be89b20ffd0f98042b19eebc4c64d7a77ac66fee7f7deec737f87ee6bd555d27",
+          "size_bytes": 10847,
+          "changelog": "- Migrate manifests to capabilities block + http_endpoints (Phase 4.1)",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "java"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "javaw.exe"
+                },
+                {
+                  "exact": "java.exe"
+                }
+              ]
+            },
+            "window_title": {
+              "any_of": [
+                {
+                  "starts_with": "Minecraft"
+                }
+              ],
+              "none_of": [
+                {
+                  "contains": "Launcher"
+                }
+              ]
+            },
+            "structure": {
+              "ancestor_contains": ".minecraft",
+              "ancestor_depth": 6
+            }
+          }
+        },
         {
           "version": "1.0.2",
           "released_at": "2026-04-22T20:34:14Z",
@@ -581,8 +734,44 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/mono-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/mono-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/mono-tracker-tf",
-      "latest_version": "1.0.2",
+      "latest_version": "1.0.3",
       "versions": [
+        {
+          "version": "1.0.3",
+          "released_at": "2026-05-01T00:19:15Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/mono-tracker-tf/v1.0.3/mono-tracker-tf-1.0.3.zip",
+          "sha256": "f703f81e3724210d1cb6c1396d92f9f56c209e9d66760b31a8688aa1a2b0f492",
+          "size_bytes": 10842,
+          "changelog": "- Migrate manifests to capabilities block + http_endpoints (Phase 4.1)",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "unity-mono"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "none_of": [
+                {
+                  "contains": "crashhandler"
+                }
+              ]
+            },
+            "structure": {
+              "sibling_pattern": "*_Data"
+            },
+            "files": {
+              "require_all": [
+                "{sibling}/Managed/Assembly-CSharp.dll"
+              ],
+              "forbid": [
+                "GameAssembly.dll"
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.2",
           "released_at": "2026-04-23T00:45:07Z",
@@ -708,8 +897,33 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/terraria-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/terraria-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/terraria-tracker-tf",
-      "latest_version": "1.0.2",
+      "latest_version": "1.0.3",
       "versions": [
+        {
+          "version": "1.0.3",
+          "released_at": "2026-05-01T00:19:21Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/terraria-tracker-tf/v1.0.3/terraria-tracker-tf-1.0.3.zip",
+          "sha256": "febc3df4a0b74d564bba2aea1c8273e26dada01364039ae7f745df5952f9a0cb",
+          "size_bytes": 11843,
+          "changelog": "- Migrate manifests to capabilities block + http_endpoints (Phase 4.1)",
+          "min_app_version": "0.1.0",
+          "yanked": false,
+          "game_engines": [
+            "dotnet_framework"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "Terraria.exe"
+                }
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.2",
           "released_at": "2026-04-22T20:34:31Z",
