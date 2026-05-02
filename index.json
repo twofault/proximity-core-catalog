@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-02T01:39:16.327119Z",
+  "generated_at": "2026-05-02T01:39:54.646055Z",
   "min_app_version": "0.2.0",
   "bridges": [
     {
@@ -638,9 +638,9 @@
       "versions": [
         {
           "version": "1.0.6",
-          "released_at": "2026-05-02T01:38:25Z",
+          "released_at": "2026-05-02T01:39:42Z",
           "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/il2cpp-tracker-tf/v1.0.6/il2cpp-tracker-tf-1.0.6.zip",
-          "sha256": "acb9ac90948af307c612aa12e279575836004ff2b0892a286b19d1c2539a99a2",
+          "sha256": "6f7ea0921f68752065d9e308a04cae125d06fddb002454f282086427b60100cf",
           "size_bytes": 11115,
           "changelog": "- Migrate to GameStore Lua API + min_app_version 0.2.0",
           "min_app_version": "0.2.0",
