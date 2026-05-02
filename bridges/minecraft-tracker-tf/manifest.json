@@ -2,7 +2,7 @@
   "id": "minecraft-tracker-tf",
   "name": "Minecraft Java Edition",
   "description": "Extracts player position from Minecraft Java Edition using GameLink with automatic deobfuscation",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "author": "twofault",
   "entry": "main.lua",
   "gamelink_script": "minecraft_tracker.lua",
