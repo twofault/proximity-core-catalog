@@ -240,7 +240,7 @@ function update(dt)
                 end
 
                 if d.posX then
-                    LocalPlayer.setCameraPosition(
+                    GameStore.setCameraPosition(
                         d.posX, d.posY, -(d.posZ or 0))
                     if is_searching then
                         is_searching = false
@@ -249,25 +249,19 @@ function update(dt)
                     end
                 end
 
-                if d.eulerX then
-                    local function toSigned(deg)
-                        if deg > 180 then return deg - 360 end
-                        return deg
-                    end
-                    -- Unity X+ = looking down, ours = looking up.
-                    local pitch = math.rad(toSigned(d.eulerX))
-                    -- Unity Y: 0=+Z CW, ours: 0=-Z CCW — negate for Z flip.
-                    local yaw = -math.rad(toSigned(d.eulerY))
-                    local roll = math.rad(toSigned(d.eulerZ))
-                    LocalPlayer.setCameraOrientation(pitch, yaw, roll)
-                elseif d.fwdX then
+                -- Forward + up come straight from Unity's transform basis.
+                -- Routing through setCameraBasis bypasses the euler
+                -- decomposition that was spinning the listener at zenith/nadir.
+                -- Coordinate flip: Unity is +Z forward, ours is -Z forward,
+                -- so negate Z on both fwd and up.
+                if d.upX ~= nil then
                     local fx = d.fwdX or 0
                     local fy = d.fwdY or 0
                     local fz = -(d.fwdZ or 0)
-                    local pitch = math.asin(
-                        math.max(-1, math.min(1, fy)))
-                    local yaw = math.atan(-fx, -fz)
-                    LocalPlayer.setCameraOrientation(pitch, yaw, 0)
+                    local ux = d.upX or 0
+                    local uy = d.upY or 1
+                    local uz = -(d.upZ or 0)
+                    GameStore.setCameraBasis(fx, fy, fz, ux, uy, uz)
                 end
             end
         end

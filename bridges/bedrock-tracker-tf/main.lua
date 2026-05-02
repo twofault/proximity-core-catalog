@@ -19,6 +19,42 @@ local no_data_count = 0
 local is_searching = false
 local last_dimension = nil
 
+-- Gimbal-lock-safe orientation forwarding.
+-- At pitch ±90° the engine's forward/up basis is degenerate against yaw, and
+-- atan2(0,0) on the source forward vector adds noise — together these cause
+-- the audio "up" vector to spin around the listener at zenith/nadir.
+-- Fix: clamp pitch slightly below ±90° (HRTF difference is sub-perceptual)
+-- and hold the last stable yaw whenever pitch is inside the unstable cone
+-- AND the new yaw jumps by more than the rejection threshold.
+local PITCH_CLAMP_RAD = math.rad(89)
+local YAW_HOLD_PITCH_RAD = math.rad(85)
+local YAW_JUMP_REJECT_RAD = math.rad(30)
+local last_stable_yaw = 0
+
+local function wrap_pi(angle)
+    while angle > math.pi do angle = angle - 2 * math.pi end
+    while angle < -math.pi do angle = angle + 2 * math.pi end
+    return angle
+end
+
+local function set_camera_orientation_stable(pitch, yaw, roll)
+    if pitch > PITCH_CLAMP_RAD then pitch = PITCH_CLAMP_RAD
+    elseif pitch < -PITCH_CLAMP_RAD then pitch = -PITCH_CLAMP_RAD end
+
+    if math.abs(pitch) > YAW_HOLD_PITCH_RAD then
+        local dy = wrap_pi(yaw - last_stable_yaw)
+        if math.abs(dy) > YAW_JUMP_REJECT_RAD then
+            yaw = last_stable_yaw
+        else
+            last_stable_yaw = yaw
+        end
+    else
+        last_stable_yaw = yaw
+    end
+
+    GameStore.setCameraOrientation(pitch, yaw, roll or 0)
+end
+
 local function check_cancel()
     if Bridge.isCancelled() then
         Core.log("Initialization cancelled")
@@ -250,14 +286,14 @@ function update(dt)
                     -- Bedrock uses same coordinate system as Java Edition
                     -- (X=East, Y=Up, Z=South) — pass through directly.
                     -- Camera Y is at eye level; speaker defaults to camera.
-                    LocalPlayer.setCameraPosition(d.posX, d.posY, d.posZ)
+                    GameStore.setCameraPosition(d.posX, d.posY, d.posZ)
 
                     -- Negate fwdX/fwdZ to flip 180° on the XZ plane
                     if d.fwdX and d.fwdY and d.fwdZ then
                         local yaw = math.atan2(-d.fwdX, -d.fwdZ)
                         local horiz = math.sqrt(d.fwdX * d.fwdX + d.fwdZ * d.fwdZ)
                         local pitch = math.atan2(d.fwdY, horiz)
-                        LocalPlayer.setCameraOrientation(pitch, yaw, 0)
+                        set_camera_orientation_stable(pitch, yaw, 0)
                     end
 
                     if d.dimension ~= nil then

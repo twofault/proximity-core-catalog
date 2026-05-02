@@ -29,7 +29,8 @@ local CACHED_PTR_OFFSET = MONO_HEADER_SIZE
 local NATIVE_TRANSFORM_MATRIX_OFFSETS = { 0x38, 0x3C, 0x44, 0x48, 0x60, 0x90 }
 
 -- Column-major 4x4: translation is the last column (m[12..14]),
--- forward is the third column / Z basis (m[8..10]).
+-- forward is the third column / Z basis (m[8..10]),
+-- up is the second column / Y basis (m[4..6]).
 local MATRIX_POS_X = 12 * 4
 local MATRIX_POS_Y = 13 * 4
 local MATRIX_POS_Z = 14 * 4
@@ -37,6 +38,10 @@ local MATRIX_POS_Z = 14 * 4
 local MATRIX_FWD_X = 8 * 4
 local MATRIX_FWD_Y = 9 * 4
 local MATRIX_FWD_Z = 10 * 4
+
+local MATRIX_UP_X = 4 * 4
+local MATRIX_UP_Y = 5 * 4
+local MATRIX_UP_Z = 6 * 4
 
 local mono_dll = nil
 local api = {}
@@ -276,6 +281,18 @@ local function read_native_forward(native_ptr)
     return { x = x, y = y, z = z }
 end
 
+local function read_native_up(native_ptr)
+    if not native_ptr or native_ptr == 0 then return nil end
+    if not native_matrix_offset then return nil end
+    local base = native_ptr + native_matrix_offset
+    local x = memory.read_f32(base + MATRIX_UP_X)
+    local y = memory.read_f32(base + MATRIX_UP_Y)
+    local z = memory.read_f32(base + MATRIX_UP_Z)
+    if not x or not y or not z then return nil end
+    if x ~= x or y ~= y or z ~= z then return nil end
+    return { x = x, y = y, z = z }
+end
+
 -- Unity's Mono icall address lives at MonoMethod+0x28 (Mono 5.x/6.x). The
 -- icall itself is a native C++ function inside UnityPlayer.dll; we whitelist
 -- it through native.lookup and invoke it directly — no observer needed.
@@ -354,22 +371,6 @@ local function read_scene_name()
     return scene_cache.name
 end
 
--- Unity convention: Y-up, forward = +Z. (Proximity uses -Z forward; the host
--- bridge script does the Z flip.)
-local function forward_to_euler(fwd)
-    if not fwd then return nil end
-    local len = math.sqrt(fwd.x * fwd.x + fwd.y * fwd.y + fwd.z * fwd.z)
-    if len < 0.001 then return nil end
-    local fx = fwd.x / len
-    local fy = fwd.y / len
-    local fz = fwd.z / len
-    local pitch = math.deg(math.asin(math.max(-1, math.min(1, fy))))
-    local yaw = math.deg(math.atan(fx, fz))
-    if pitch < 0 then pitch = pitch + 360 end
-    if yaw < 0 then yaw = yaw + 360 end
-    return { x = pitch, y = yaw, z = 0 }
-end
-
 local vec3_buf = nil
 local quat_buf = nil
 
@@ -409,7 +410,7 @@ local function read_frame()
     end
     if not pos then return nil end
 
-    local fwd = nil
+    local fwd, up = nil, nil
     if icalls.get_rotation then
         if not quat_buf then quat_buf = memory.alloc(16) end
         local rok = pcall(native.call, icalls.get_rotation, "void",
@@ -425,18 +426,22 @@ local function read_frame()
                     y = 2 * (qy * qz - qw * qx),
                     z = 1 - 2 * (qx * qx + qy * qy),
                 }
+                up = {
+                    x = 2 * (qx * qy - qw * qz),
+                    y = 1 - 2 * (qx * qx + qz * qz),
+                    z = 2 * (qy * qz + qw * qx),
+                }
             end
         end
     end
 
-    if not fwd then
+    if not fwd or not up then
         local native_tf = memory.read_pointer(tf_ptr + CACHED_PTR_OFFSET)
         if native_tf and native_tf ~= 0 and native_matrix_offset then
-            fwd = read_native_forward(native_tf)
+            fwd = fwd or read_native_forward(native_tf)
+            up = up or read_native_up(native_tf)
         end
     end
-
-    local euler = forward_to_euler(fwd)
 
     local scene_name = read_scene_name()
 
@@ -449,9 +454,9 @@ local function read_frame()
         fwdX = fwd and fwd.x or 0,
         fwdY = fwd and fwd.y or 0,
         fwdZ = fwd and fwd.z or 0,
-        eulerX = euler and euler.x or nil,
-        eulerY = euler and euler.y or nil,
-        eulerZ = euler and euler.z or nil,
+        upX = up and up.x or 0,
+        upY = up and up.y or 1,
+        upZ = up and up.z or 0,
         sceneName = scene_name,
         sceneIndex = -1,
         timestamp = clock() * 1000,

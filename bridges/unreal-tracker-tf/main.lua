@@ -37,6 +37,42 @@ local function unreal_rotation_to_orientation(pitch_deg, yaw_deg)
     return pitch_rad, yaw_rad, 0
 end
 
+-- Gimbal-lock-safe orientation forwarding.
+-- At pitch ±90° the engine's forward/up basis is degenerate against yaw, so
+-- any tiny float noise in the source FRotator makes the audio "up" vector
+-- spin around the listener at zenith/nadir.
+-- Fix: clamp pitch slightly below ±90° (HRTF difference is sub-perceptual)
+-- and hold the last stable yaw whenever pitch is inside the unstable cone
+-- AND the new yaw jumps by more than the rejection threshold.
+local PITCH_CLAMP_RAD = math.rad(89)
+local YAW_HOLD_PITCH_RAD = math.rad(85)
+local YAW_JUMP_REJECT_RAD = math.rad(30)
+local last_stable_yaw = 0
+
+local function wrap_pi(angle)
+    while angle > math.pi do angle = angle - 2 * math.pi end
+    while angle < -math.pi do angle = angle + 2 * math.pi end
+    return angle
+end
+
+local function set_camera_orientation_stable(pitch, yaw, roll)
+    if pitch > PITCH_CLAMP_RAD then pitch = PITCH_CLAMP_RAD
+    elseif pitch < -PITCH_CLAMP_RAD then pitch = -PITCH_CLAMP_RAD end
+
+    if math.abs(pitch) > YAW_HOLD_PITCH_RAD then
+        local dy = wrap_pi(yaw - last_stable_yaw)
+        if math.abs(dy) > YAW_JUMP_REJECT_RAD then
+            yaw = last_stable_yaw
+        else
+            last_stable_yaw = yaw
+        end
+    else
+        last_stable_yaw = yaw
+    end
+
+    GameStore.setCameraOrientation(pitch, yaw, roll or 0)
+end
+
 local function check_cancel()
     if Bridge.isCancelled() then
         Core.log("Initialization cancelled by user")
@@ -329,7 +365,7 @@ function update(dt)
 
                 if d.posX then
                     local std_x, std_y, std_z = unreal_to_standard_position(d.posX, d.posY, d.posZ)
-                    LocalPlayer.setCameraPosition(std_x, std_y, std_z)
+                    GameStore.setCameraPosition(std_x, std_y, std_z)
                     if is_searching then
                         is_searching = false
                         Bridge.push("searching_for_player", false, 30000)
@@ -342,10 +378,10 @@ function update(dt)
                 -- exposes rotY as Yaw, which is what we want for the fallback.
                 if d.pitch then
                     local pitch, yaw, roll = unreal_rotation_to_orientation(d.pitch, d.yaw)
-                    LocalPlayer.setCameraOrientation(pitch, yaw, roll)
+                    set_camera_orientation_stable(pitch, yaw, roll)
                 elseif d.rotY ~= nil then
                     local pitch, yaw, roll = unreal_rotation_to_orientation(d.rotX or 0, d.rotY)
-                    LocalPlayer.setCameraOrientation(pitch, yaw, roll)
+                    set_camera_orientation_stable(pitch, yaw, roll)
                 end
 
             end

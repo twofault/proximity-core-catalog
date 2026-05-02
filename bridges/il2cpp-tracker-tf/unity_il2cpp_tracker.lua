@@ -351,37 +351,23 @@ local function get_rotation(transform)
     return { x = x, y = y, z = z, w = w }
 end
 
--- Quaternion -> euler angles (degrees, Unity ZXY extrinsic convention)
--- X = pitch (up/down, asin ±90°), Y = yaw (left/right, atan2 360°), Z = roll
-local function quat_to_euler(q)
-    -- Pitch (X): asin(2(wx - yz)) — gimbal-lock axis, ±90°
-    local sinp = 2 * (q.w * q.x - q.y * q.z)
-    local pitch
-    if math.abs(sinp) >= 1 then
-        pitch = math.deg((sinp >= 0 and 1 or -1) * math.pi / 2)
-    else
-        pitch = math.deg(math.asin(sinp))
-    end
-
-    -- Yaw (Y): atan2(2(xz + wy), 1 - 2(x² + y²)) — full 360°
-    local siny_cosp = 2 * (q.x * q.z + q.w * q.y)
-    local cosy_cosp = 1 - 2 * (q.x * q.x + q.y * q.y)
-    local yaw = math.deg(math.atan(siny_cosp, cosy_cosp))
-
-    -- Roll (Z): atan2(2(xy + wz), 1 - 2(x² + z²)) — full 360°
-    local sinr_cosp = 2 * (q.x * q.y + q.w * q.z)
-    local cosr_cosp = 1 - 2 * (q.x * q.x + q.z * q.z)
-    local roll = math.deg(math.atan(sinr_cosp, cosr_cosp))
-
-    return pitch, yaw, roll
-end
-
 -- Quaternion -> forward vector (Unity: forward = +Z local)
 local function quat_to_forward(q)
     return {
         x = 2 * (q.x * q.z + q.w * q.y),
         y = 2 * (q.y * q.z - q.w * q.x),
         z = 1 - 2 * (q.x * q.x + q.y * q.y),
+    }
+end
+
+-- Quaternion -> up vector (Unity: up = +Y local). Pairing with quat_to_forward
+-- gives the host bridge an orthonormal basis it can hand the audio engine
+-- without ever decomposing through euler -- which is degenerate at zenith/nadir.
+local function quat_to_up(q)
+    return {
+        x = 2 * (q.x * q.y - q.w * q.z),
+        y = 1 - 2 * (q.x * q.x + q.z * q.z),
+        z = 2 * (q.y * q.z + q.w * q.x),
     }
 end
 
@@ -447,14 +433,15 @@ local function read_frame()
     local pos = get_position(transform)
     if not pos then return nil end
 
-    local fwd, euler_x, euler_y, euler_z = nil, nil, nil, nil
+    -- Host wants the camera basis directly (forward + up) so the audio engine
+    -- skips the gimbal-locked euler conversion. We still emit forward as the
+    -- legacy field and omit euler entirely -- main.lua now drives orientation
+    -- through setCameraBasis on the runtime side.
+    local fwd, up = nil, nil
     local rot = get_rotation(transform)
     if rot then
         fwd = quat_to_forward(rot)
-        euler_x, euler_y, euler_z = quat_to_euler(rot)
-        if euler_x and euler_x < 0 then euler_x = euler_x + 360 end
-        if euler_y and euler_y < 0 then euler_y = euler_y + 360 end
-        if euler_z and euler_z < 0 then euler_z = euler_z + 360 end
+        up = quat_to_up(rot)
     end
 
     local scene_name, scene_index = try_read_scene_name()
@@ -468,9 +455,9 @@ local function read_frame()
         fwdX = fwd and fwd.x or 0,
         fwdY = fwd and fwd.y or 0,
         fwdZ = fwd and fwd.z or 0,
-        eulerX = euler_x,
-        eulerY = euler_y,
-        eulerZ = euler_z,
+        upX = up and up.x or 0,
+        upY = up and up.y or 1,
+        upZ = up and up.z or 0,
         sceneName = scene_name,
         sceneIndex = scene_index,
         timestamp = clock() * 1000,

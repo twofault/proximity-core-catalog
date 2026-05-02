@@ -302,7 +302,7 @@ function init()
 
     smoothedPosX = mapWidth / 2
     smoothedPosY = mapHeight / 2
-    LocalPlayer.setCameraPosition(smoothedPosX, 0, smoothedPosY)
+    GameStore.setCameraPosition(smoothedPosX, 0, smoothedPosY)
 
     Bridge.setProgress("Processing reference map...", 50, 1)
 
@@ -483,8 +483,8 @@ function update(dt)
     smoothedRot = smoothAngle(smoothedRot, visionRot, ROT_SMOOTHING, safeDt)
 
     -- map 2D -> 3D: x=map_x, y=0, z=map_y
-    LocalPlayer.setCameraPosition(smoothedPosX, 0, smoothedPosY)
-    LocalPlayer.setCameraOrientation(0, smoothedRot, 0)
+    GameStore.setCameraPosition(smoothedPosX, 0, smoothedPosY)
+    GameStore.setCameraOrientation(0, smoothedRot, 0)
 end
 
 function dispose()

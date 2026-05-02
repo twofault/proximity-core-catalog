@@ -146,7 +146,7 @@ function update(dt)
                 elseif d.posX ~= nil then
                     had_data = true
                     no_data = 0
-                    LocalPlayer.setCameraPosition(d.posX, d.posY, d.posZ)
+                    GameStore.setCameraPosition(d.posX, d.posY, d.posZ)
                     if is_searching then
                         is_searching = false
                         Bridge.push("searching_for_player", false, 30000)

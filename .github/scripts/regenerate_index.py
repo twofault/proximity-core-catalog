@@ -20,7 +20,7 @@ REPO = "twofault/proximity-core-catalog"
 RAW_BASE = f"https://raw.githubusercontent.com/{REPO}/main"
 RELEASE_BASE = f"https://github.com/{REPO}/releases/download"
 SCHEMA_VERSION = 1
-MIN_APP_VERSION = "0.1.0"
+MIN_APP_VERSION = "0.2.0"
 
 
 def gh(*args: str) -> str:

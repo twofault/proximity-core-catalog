@@ -30,6 +30,41 @@ local prev_distance = nil              -- distance from previous frame
 local cur_cam_dist = nil
 local ZOOM_SMOOTH = 4.0
 
+-- Gimbal-lock-safe orientation forwarding.
+-- DST is an orbit camera so |pitch| is bounded well below 90° in normal play,
+-- but applying the same guard as other bridges keeps behavior consistent and
+-- protects against unexpected camera manipulations (mods, debug toggles).
+-- At pitch ±90° the engine's forward/up basis is degenerate against yaw, so
+-- any tiny float noise makes the audio "up" vector spin around the listener.
+local PITCH_CLAMP_RAD = math.rad(89)
+local YAW_HOLD_PITCH_RAD = math.rad(85)
+local YAW_JUMP_REJECT_RAD = math.rad(30)
+local last_stable_yaw = 0
+
+local function wrap_pi(angle)
+    while angle > math.pi do angle = angle - 2 * math.pi end
+    while angle < -math.pi do angle = angle + 2 * math.pi end
+    return angle
+end
+
+local function set_camera_orientation_stable(pitch, yaw, roll)
+    if pitch > PITCH_CLAMP_RAD then pitch = PITCH_CLAMP_RAD
+    elseif pitch < -PITCH_CLAMP_RAD then pitch = -PITCH_CLAMP_RAD end
+
+    if math.abs(pitch) > YAW_HOLD_PITCH_RAD then
+        local dy = wrap_pi(yaw - last_stable_yaw)
+        if math.abs(dy) > YAW_JUMP_REJECT_RAD then
+            yaw = last_stable_yaw
+        else
+            last_stable_yaw = yaw
+        end
+    else
+        last_stable_yaw = yaw
+    end
+
+    GameStore.setCameraOrientation(pitch, yaw, roll or 0)
+end
+
 
 function init()
     local pid = Bridge.getPid()
@@ -383,9 +418,9 @@ function update(dt)
                     local pitch = -pitchRad
 
                     -- Negate Z for right-handed coordinate system
-                    LocalPlayer.setCameraPosition(camX, camY, -camZ)
-                    LocalPlayer.setCameraOrientation(pitch, yaw, 0)
-                    LocalPlayer.setSpeakerPosition(posX, posY, -posZ)
+                    GameStore.setCameraPosition(camX, camY, -camZ)
+                    set_camera_orientation_stable(pitch, yaw, 0)
+                    GameStore.setSpeakerPosition(posX, posY, -posZ)
                 end
 
             end
