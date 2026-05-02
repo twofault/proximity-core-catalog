@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-02T01:39:54.646055Z",
+  "generated_at": "2026-05-02T01:40:42.605685Z",
   "min_app_version": "0.2.0",
   "bridges": [
     {
@@ -1197,9 +1197,9 @@
       "versions": [
         {
           "version": "1.0.6",
-          "released_at": "2026-05-02T01:37:11Z",
+          "released_at": "2026-05-02T01:40:27Z",
           "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/mono-tracker-tf/v1.0.6/mono-tracker-tf-1.0.6.zip",
-          "sha256": "63b411b07f0ceb196da80a57141da866d8fab4b328200083cc9b1803c4da60ee",
+          "sha256": "8a0a69ba0fadc85e34ba11bd4463e581d891d2aa66e435e52088b741e52f8bd6",
           "size_bytes": 10861,
           "changelog": "- Migrate to GameStore Lua API + min_app_version 0.2.0",
           "min_app_version": "0.2.0",
