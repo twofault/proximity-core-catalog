@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-02T01:38:34.015642Z",
+  "generated_at": "2026-05-02T01:39:16.327119Z",
   "min_app_version": "0.2.0",
   "bridges": [
     {
@@ -634,8 +634,38 @@
       "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/il2cpp-tracker-tf/icon.png",
       "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/il2cpp-tracker-tf/README.md",
       "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/il2cpp-tracker-tf",
-      "latest_version": "1.0.5",
+      "latest_version": "1.0.6",
       "versions": [
+        {
+          "version": "1.0.6",
+          "released_at": "2026-05-02T01:38:25Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/il2cpp-tracker-tf/v1.0.6/il2cpp-tracker-tf-1.0.6.zip",
+          "sha256": "acb9ac90948af307c612aa12e279575836004ff2b0892a286b19d1c2539a99a2",
+          "size_bytes": 11115,
+          "changelog": "- Migrate to GameStore Lua API + min_app_version 0.2.0",
+          "min_app_version": "0.2.0",
+          "yanked": false,
+          "game_engines": [
+            "unity-il2cpp"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "none_of": [
+                {
+                  "contains": "crashhandler"
+                }
+              ]
+            },
+            "files": {
+              "require_any": [
+                "GameAssembly.dll"
+              ]
+            }
+          }
+        },
         {
           "version": "1.0.5",
           "released_at": "2026-05-01T01:53:53Z",
@@ -1636,9 +1666,9 @@
       "versions": [
         {
           "version": "1.0.6",
-          "released_at": "2026-05-02T01:38:14Z",
+          "released_at": "2026-05-02T01:38:58Z",
           "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/unreal-tracker-tf/v1.0.6/unreal-tracker-tf-1.0.6.zip",
-          "sha256": "28bd643b94724db994e40c919d0d80f4bef0c298e651df05d1aaf028d67abf9f",
+          "sha256": "adf8aa87bf613a76bfbc753e7cce4c168c6485c44b645bd22d80c68acdc66069",
           "size_bytes": 24363,
           "changelog": "- Migrate to GameStore Lua API + min_app_version 0.2.0",
           "min_app_version": "0.2.0",
