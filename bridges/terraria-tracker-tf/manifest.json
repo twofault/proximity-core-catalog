@@ -2,7 +2,7 @@
   "id": "terraria-tracker-tf",
   "name": "Terraria",
   "description": "Tracks player position in Terraria via memory scanning (read-only, no code injection)",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "author": "twofault",
   "entry": "main.lua",
   "gamelink_script": "terraria_tracker.lua",
