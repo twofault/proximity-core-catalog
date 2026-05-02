@@ -1,5 +1,8 @@
 # Changelog
 
+## v1.0.6 (2026-05-01)
+- Migrate to GameStore Lua API + min_app_version 0.2.0
+
 ## v1.0.5 (2026-04-30)
 - Fix pollAttach nil-deref crash on Frida-side attach failure
 

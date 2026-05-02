@@ -2,7 +2,7 @@
   "id": "unreal-tracker-tf",
   "name": "Unreal Engine (Generic)",
   "description": "Extracts player position from Unreal Engine 4/5 games using runtime introspection",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "author": "twofault",
   "entry": "main.lua",
   "gamelink_script": "ue_engine.lua",
