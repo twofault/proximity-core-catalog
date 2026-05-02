@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-02T01:40:42.605685Z",
+  "generated_at": "2026-05-02T01:41:52.323423Z",
   "min_app_version": "0.2.0",
   "bridges": [
     {
@@ -1666,9 +1666,9 @@
       "versions": [
         {
           "version": "1.0.6",
-          "released_at": "2026-05-02T01:38:58Z",
+          "released_at": "2026-05-02T01:41:32Z",
           "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/unreal-tracker-tf/v1.0.6/unreal-tracker-tf-1.0.6.zip",
-          "sha256": "adf8aa87bf613a76bfbc753e7cce4c168c6485c44b645bd22d80c68acdc66069",
+          "sha256": "efb08ab87ea45714a6219f618adb90ab7d9ab1bb9b041b35f9fc3798b8078f76",
           "size_bytes": 24363,
           "changelog": "- Migrate to GameStore Lua API + min_app_version 0.2.0",
           "min_app_version": "0.2.0",
