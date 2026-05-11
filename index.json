@@ -1,0 +1,398 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-05-11T08:21:32.634643Z",
+  "min_app_version": "0.2.0",
+  "bridges": [
+    {
+      "id": "bedrock-tracker-tf",
+      "name": "Minecraft Bedrock Edition",
+      "description": "Extracts player position from Minecraft Bedrock Edition by scanning static camera data in the executable's data section",
+      "author": "twofault",
+      "tags": [
+        "minecraft",
+        "bedrock-edition",
+        "bedrock",
+        "mojang",
+        "windows",
+        "experimental"
+      ],
+      "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/bedrock-tracker-tf/icon.png",
+      "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/bedrock-tracker-tf/README.md",
+      "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/bedrock-tracker-tf",
+      "latest_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "released_at": "2026-05-11T00:00:00Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/bedrock-tracker-tf/v1.0.0/bedrock-tracker-tf-1.0.0.zip",
+          "sha256": "b016f7825e5600e928b895c95193cb801d7548e48e67491e17a64ee4912b119f",
+          "size_bytes": 7743,
+          "changelog": "- Initial release.",
+          "min_app_version": "0.2.0",
+          "yanked": false,
+          "yank_reason": "",
+          "game_engines": [
+            "custom"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "Minecraft.Windows.exe"
+                },
+                {
+                  "starts_with": "Minecraft.Windows"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "dst-tracker-tf",
+      "name": "Don't Starve Together",
+      "description": "Extracts player and camera position from Don't Starve Together",
+      "author": "twofault",
+      "tags": [
+        "dont-starve-together",
+        "dst",
+        "klei",
+        "survival",
+        "lua",
+        "experimental"
+      ],
+      "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/dst-tracker-tf/icon.png",
+      "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/dst-tracker-tf/README.md",
+      "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/dst-tracker-tf",
+      "latest_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "released_at": "2026-05-11T00:00:00Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/dst-tracker-tf/v1.0.0/dst-tracker-tf-1.0.0.zip",
+          "sha256": "79f7d7878e8a1433577ac12ddc859d49575893acb0f1979f6c312556a2947295",
+          "size_bytes": 14309,
+          "changelog": "- Initial release.",
+          "min_app_version": "0.2.0",
+          "yanked": false,
+          "yank_reason": "",
+          "game_engines": [
+            "lua_custom"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "dontstarve_steam.exe"
+                },
+                {
+                  "exact": "dontstarve_steam_x64.exe"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "il2cpp-tracker-tf",
+      "name": "Unity IL2CPP Tracker",
+      "description": "Tracks camera position in Unity games using IL2CPP runtime",
+      "author": "twofault",
+      "tags": [
+        "unity",
+        "il2cpp",
+        "generic",
+        "engine",
+        "experimental",
+        "recommended",
+        "broad_support"
+      ],
+      "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/il2cpp-tracker-tf/icon.png",
+      "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/il2cpp-tracker-tf/README.md",
+      "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/il2cpp-tracker-tf",
+      "latest_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "released_at": "2026-05-11T00:00:00Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/il2cpp-tracker-tf/v1.0.0/il2cpp-tracker-tf-1.0.0.zip",
+          "sha256": "5ff15dc0e9586025493e66d7bbb06d63e7f088ebbb07697112484846f3b05057",
+          "size_bytes": 15077,
+          "changelog": "- Initial release.",
+          "min_app_version": "0.2.0",
+          "yanked": false,
+          "yank_reason": "",
+          "game_engines": [
+            "unity-il2cpp"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "none_of": [
+                {
+                  "contains": "crashhandler"
+                }
+              ]
+            },
+            "files": {
+              "require_any": [
+                "GameAssembly.dll"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "minecraft-tracker-tf",
+      "name": "Minecraft Java Edition",
+      "description": "Extracts player position from Minecraft Java Edition using GameLink with automatic deobfuscation",
+      "author": "twofault",
+      "tags": [
+        "minecraft",
+        "java-edition",
+        "mojang",
+        "java",
+        "experimental"
+      ],
+      "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/minecraft-tracker-tf/icon.png",
+      "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/minecraft-tracker-tf/README.md",
+      "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/minecraft-tracker-tf",
+      "latest_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "released_at": "2026-05-11T00:00:00Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/minecraft-tracker-tf/v1.0.0/minecraft-tracker-tf-1.0.0.zip",
+          "sha256": "9a6a2593690f9c58778564a4b130f597c5ffd3d95b7bb295571812a0e56127ae",
+          "size_bytes": 11380,
+          "changelog": "- Initial release.",
+          "min_app_version": "0.2.0",
+          "yanked": false,
+          "yank_reason": "",
+          "game_engines": [
+            "java"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "javaw.exe"
+                },
+                {
+                  "exact": "java.exe"
+                }
+              ]
+            },
+            "window_title": {
+              "any_of": [
+                {
+                  "starts_with": "Minecraft"
+                }
+              ],
+              "none_of": [
+                {
+                  "contains": "Launcher"
+                }
+              ]
+            },
+            "structure": {
+              "ancestor_contains": ".minecraft",
+              "ancestor_depth": 6
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "mono-tracker-tf",
+      "name": "Unity Mono Tracker",
+      "description": "Tracks camera position in Unity games using Mono runtime",
+      "author": "twofault",
+      "tags": [
+        "unity",
+        "mono",
+        "generic",
+        "engine",
+        "dotnet",
+        "experimental",
+        "recommended",
+        "broad_support"
+      ],
+      "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/mono-tracker-tf/icon.png",
+      "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/mono-tracker-tf/README.md",
+      "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/mono-tracker-tf",
+      "latest_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "released_at": "2026-05-11T00:00:00Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/mono-tracker-tf/v1.0.0/mono-tracker-tf-1.0.0.zip",
+          "sha256": "66d45347be9c7091ac7e9fbb85003787b98d5d0bd54693c2973b2c961286c8d5",
+          "size_bytes": 19902,
+          "changelog": "- Initial release.",
+          "min_app_version": "0.2.0",
+          "yanked": false,
+          "yank_reason": "",
+          "game_engines": [
+            "unity-mono"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "none_of": [
+                {
+                  "contains": "crashhandler"
+                }
+              ]
+            },
+            "structure": {
+              "sibling_pattern": "*_Data"
+            },
+            "files": {
+              "require_all": [
+                "{sibling}/Managed/Assembly-CSharp.dll"
+              ],
+              "forbid": [
+                "GameAssembly.dll"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "terraria-tracker-tf",
+      "name": "Terraria",
+      "description": "Tracks player position in Terraria via memory scanning (read-only, no code injection)",
+      "author": "twofault",
+      "tags": [
+        "terraria",
+        "re-logic",
+        "dotnet",
+        "2d",
+        "experimental"
+      ],
+      "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/terraria-tracker-tf/icon.png",
+      "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/terraria-tracker-tf/README.md",
+      "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/terraria-tracker-tf",
+      "latest_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "released_at": "2026-05-11T00:00:00Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/terraria-tracker-tf/v1.0.0/terraria-tracker-tf-1.0.0.zip",
+          "sha256": "fa631d9d7ed224ccee44b21afc20f8bdcce8ce9a0e261a8151b03f99bc068c16",
+          "size_bytes": 11166,
+          "changelog": "- Initial release.",
+          "min_app_version": "0.2.0",
+          "yanked": false,
+          "yank_reason": "",
+          "game_engines": [
+            "dotnet_framework"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "Terraria.exe"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "unreal-tracker-tf",
+      "name": "Unreal Engine (Generic)",
+      "description": "Extracts player position from Unreal Engine 4/5 games using runtime introspection",
+      "author": "twofault",
+      "tags": [
+        "unreal-engine",
+        "ue4",
+        "ue5",
+        "epic",
+        "generic",
+        "engine",
+        "experimental",
+        "recommended",
+        "broad_support"
+      ],
+      "icon_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/unreal-tracker-tf/icon.png",
+      "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/unreal-tracker-tf/README.md",
+      "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/unreal-tracker-tf",
+      "latest_version": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "released_at": "2026-05-11T00:00:00Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/unreal-tracker-tf/v1.0.0/unreal-tracker-tf-1.0.0.zip",
+          "sha256": "06df37d7972d89d1d41a595c89a877f034bd47cd180c786f253f9b44663674db",
+          "size_bytes": 38472,
+          "changelog": "- Initial release.",
+          "min_app_version": "0.2.0",
+          "yanked": false,
+          "yank_reason": "",
+          "game_engines": [
+            "unreal"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "none_of": [
+                {
+                  "contains": "CrashReportClient"
+                },
+                {
+                  "contains": "EpicWebHelper"
+                },
+                {
+                  "contains": "EOSOverlay"
+                },
+                {
+                  "contains": "EasyAntiCheat"
+                },
+                {
+                  "contains": "BEService"
+                },
+                {
+                  "contains": "UE4PrereqSetup"
+                },
+                {
+                  "contains": "UnrealCEFSubProcess"
+                }
+              ]
+            },
+            "structure": {
+              "ancestor_file_exists": [
+                "Engine"
+              ],
+              "ancestor_depth": 5
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

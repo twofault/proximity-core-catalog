@@ -1,0 +1,82 @@
+name: Publish bridge
+
+on:
+  push:
+    tags:
+      - '*/v*.*.*'
+
+permissions:
+  contents: write
+
+# Different bridges can publish in parallel; same tag re-push waits for
+# the prior run.
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      # GitHub Actions ${{ }} substitution is textual, so anything that ends
+      # up in `bridge_id` or `version` could otherwise inject shell. Validate
+      # the tag here before any value escapes this step.
+      - name: Parse + validate tag
+        id: parse
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if ! [[ "$TAG" =~ ^([a-z][a-z0-9-]{2,31})/v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "ERROR: tag '$TAG' must match <bridge-id>/v<MAJOR>.<MINOR>.<PATCH>" >&2
+            exit 1
+          fi
+          BRIDGE_ID="${BASH_REMATCH[1]}"
+          VERSION="${BASH_REMATCH[2]}"
+          echo "bridge_id=$BRIDGE_ID" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Tag: $TAG -> $BRIDGE_ID / $VERSION"
+
+      - name: Verify bridge + manifest version matches tag
+        env:
+          BRIDGE_ID: ${{ steps.parse.outputs.bridge_id }}
+          VERSION: ${{ steps.parse.outputs.version }}
+        run: |
+          BRIDGE_DIR="bridges/${BRIDGE_ID}"
+          if [ ! -d "$BRIDGE_DIR" ]; then
+            echo "ERROR: bridge directory $BRIDGE_DIR does not exist in main" >&2
+            exit 1
+          fi
+          MANIFEST_VERSION=$(jq -r .version "$BRIDGE_DIR/manifest.json")
+          if [ "$MANIFEST_VERSION" != "$VERSION" ]; then
+            echo "ERROR: tag version $VERSION does not match manifest version $MANIFEST_VERSION" >&2
+            exit 1
+          fi
+
+      - name: Build zip
+        env:
+          BRIDGE_ID: ${{ steps.parse.outputs.bridge_id }}
+          VERSION: ${{ steps.parse.outputs.version }}
+        run: |
+          chmod +x .github/scripts/build_zip.sh
+          .github/scripts/build_zip.sh "$BRIDGE_ID" "$VERSION"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRIDGE_ID: ${{ steps.parse.outputs.bridge_id }}
+          VERSION: ${{ steps.parse.outputs.version }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          ZIP="dist/${BRIDGE_ID}-${VERSION}.zip"
+          CHANGELOG=$(awk -v V="$VERSION" 'BEGIN{flag=0} /^## v?/{if (flag) exit; if ($2 == "v" V || $2 == V) flag=1; next} flag' "bridges/${BRIDGE_ID}/CHANGELOG.md" || echo "")
+          NOTES="${CHANGELOG:-No changelog entry.}"
+          gh release create "$TAG" "$ZIP" \
+            --repo "$REPO" \
+            --title "${BRIDGE_ID} v${VERSION}" \
+            --notes "$NOTES"

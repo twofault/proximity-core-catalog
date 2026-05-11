@@ -1,0 +1,67 @@
+name: Regenerate index
+
+# Runs after every successful Publish. Serializes globally so concurrent
+# publishes don't race on `index.json`. Also prunes old releases per bridge,
+# keeping the newest `release_keep_count` versions from `catalog.config.json`.
+on:
+  workflow_run:
+    workflows: ["Publish bridge"]
+    types: [completed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: regenerate-index
+  cancel-in-progress: false
+
+jobs:
+  regenerate:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          BOT_NAME=$(jq -r .bot_name catalog.config.json)
+          BOT_EMAIL=$(jq -r .bot_email catalog.config.json)
+          git config user.name "$BOT_NAME"
+          git config user.email "$BOT_EMAIL"
+
+      - name: Regenerate, commit + push (with retry)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for i in 1 2 3; do
+            # Re-run the indexer each attempt so the committed file reflects
+            # whatever just landed on main (including any concurrent merges).
+            python3 .github/scripts/regenerate_index.py
+            git add index.json
+            if git diff --cached --quiet; then
+              echo "index.json already up to date"
+              exit 0
+            fi
+            # Reuse the same commit message; amend if a prior attempt left one.
+            if git log -1 --pretty=%s | grep -q '^chore(index): regenerate$'; then
+              git commit --amend --no-edit
+            else
+              git commit -m "chore(index): regenerate"
+            fi
+            if git push origin main; then
+              exit 0
+            fi
+            echo "Push rejected — pulling and retrying ($i/3)"
+            git fetch origin main
+            git reset --hard origin/main
+          done
+          echo "ERROR: failed to push index after 3 attempts" >&2
+          exit 1
+
+      - name: Prune old releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/scripts/prune_releases.py

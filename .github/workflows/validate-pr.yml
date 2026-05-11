@@ -1,0 +1,25 @@
+name: Validate PR
+
+on:
+  pull_request:
+    paths:
+      - 'bridges/**'
+      - 'shared/**'
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install imagemagick
+        run: sudo apt-get update && sudo apt-get install -y imagemagick
+      - name: Validate changed bridges
+        env:
+          GITHUB_PR_AUTHOR_ASSOCIATION: ${{ github.event.pull_request.author_association }}
+        run: python3 .github/scripts/validate_pr.py "origin/${{ github.base_ref }}"

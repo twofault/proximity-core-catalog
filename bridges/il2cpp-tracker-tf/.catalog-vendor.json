@@ -1,0 +1,5 @@
+{
+  "lua": {
+    "shared/lua/proximity/net_id_capture.lua": "net_id_capture.lua"
+  }
+}

@@ -1,0 +1,6 @@
+dist/
+*.zip
+*.sha256
+
+logs/
+__pycache__/

@@ -1,0 +1,397 @@
+-- Unity Mono camera tracker. Pull-tick mode: host ticks, agent responds.
+
+local TICK_STALL_RESET_SECONDS = 0.2
+local ATTACH_TIMEOUT_MS = 25000
+local ATTACH_MAX_ATTEMPTS = 3
+local ATTACH_RETRY_DELAY_MS = 4000
+local SEARCHING_LOG_INTERVAL = 600  -- 10s at 60Hz
+
+local script_handle = nil
+local tick_in_flight = false
+local tick_wait_seconds = 0
+local no_data_count = 0
+local is_searching = false
+local last_scene_name = nil
+
+-- Session-id detector loaded as a sidecar script after the main agent inits.
+local NET_ID_TICK_INTERVAL_S = 1.0
+local net_id_handle = nil
+local last_session_id = nil
+local last_net_id_tick = 0
+
+local function tick_net_id_capture(dt)
+    if not net_id_handle then return end
+    last_net_id_tick = last_net_id_tick + (dt or 1 / 60)
+    if last_net_id_tick >= NET_ID_TICK_INTERVAL_S then
+        last_net_id_tick = 0
+        pcall(Gamelink.send, net_id_handle, {
+            type = "tick", now_ms = Core.getTimeMillis(),
+        })
+    end
+end
+
+local function handle_net_id_message(msg)
+    if msg.type == "log" and msg.payload then
+        Core.log("[net_id] " .. tostring(msg.payload))
+    elseif msg.type == "data" and msg.payload then
+        local d = msg.payload
+        if d.type == "session-id" then
+            if d.id and d.id ~= last_session_id then
+                last_session_id = d.id
+                pcall(Session.suggestPublicSession, d.id)
+                Core.log("Session ID set: " .. tostring(d.id) ..
+                    " (source=" .. tostring(d.source) .. ")")
+            elseif not d.id and last_session_id then
+                last_session_id = nil
+                pcall(Session.clearSuggestedSession)
+                Core.log("Session ID cleared (reason="
+                    .. tostring(d.reason or "?") .. ")")
+            end
+        end
+    end
+end
+
+local function yield_for_ms(ms)
+    local start = Core.getTimeMillis()
+    while (Core.getTimeMillis() - start) < ms do
+        if Bridge.isCancelled() then
+            return false
+        end
+        coroutine.yield()
+    end
+    return true
+end
+
+local function attach_with_retries()
+    local last_error = "unknown"
+
+    -- Wait for any prior session's worker to finish unwinding. Yielding
+    -- keeps the engine thread responsive instead of freezing the app.
+    local lingering_wait_start = Core.getTimeMillis()
+    while not Gamelink.isLingeringClear() do
+        if Bridge.isCancelled() then return false, "Cancelled" end
+        if Core.getTimeMillis() - lingering_wait_start > 15000 then
+            Core.warn("Previous Frida worker did not finish unwinding within 15s; " ..
+                "attempting attach anyway")
+            break
+        end
+        Bridge.setProgress("Waiting for previous session to close...", 40, 1)
+        coroutine.yield()
+    end
+
+    for attempt = 1, ATTACH_MAX_ATTEMPTS do
+        Bridge.setProgress("Attaching to process...", 40, 3)
+        local attach_result, attach_result_err = Gamelink.attach({ timeout_ms = ATTACH_TIMEOUT_MS })
+        if attach_result_err then
+            last_error = attach_result_err or "unknown"
+        else
+            if not attach_result.pending then
+                return true, nil
+            end
+
+            while true do
+                if Bridge.isCancelled() then
+                    return false, "Cancelled"
+                end
+
+                local status, status_err = Gamelink.pollAttach()
+                if status_err then
+                    last_error = status_err
+                    break
+                end
+                if status.done then
+                    if (not status_err) then
+                        return true, nil
+                    end
+                    last_error = status_err or "unknown"
+                    break
+                end
+
+                Bridge.setProgress(status.message or "Attaching...", 40, 3)
+                coroutine.yield()
+            end
+        end
+
+        if attempt < ATTACH_MAX_ATTEMPTS then
+            Core.warn("Attach attempt " .. tostring(attempt) .. " failed: "
+                .. tostring(last_error) .. " (retrying)")
+            Bridge.setProgress("Retrying attach...", 35, 2)
+            if not yield_for_ms(ATTACH_RETRY_DELAY_MS) then
+                return false, "Cancelled"
+            end
+        end
+    end
+
+    return false, last_error
+end
+
+function init()
+    local pid = Bridge.getPid()
+    if not pid then
+        Core.error("No target PID set!")
+        Bridge.shutdown("No target PID")
+        return
+    end
+
+    Core.log("Mono Tracker: Initializing for PID " .. tostring(pid))
+    Bridge.setProgress("Initializing...", 5, 2)
+
+    local attached, attach_error = attach_with_retries()
+    if not attached then
+        if attach_error == "Cancelled" then
+            Bridge.shutdown("Cancelled")
+        else
+            Core.error("GameLink attach failed: " .. tostring(attach_error))
+            Bridge.shutdown("GameLink attach failed")
+        end
+        return
+    end
+    Core.log("GameLink attached successfully")
+
+    if Bridge.isCancelled() then
+        Bridge.shutdown("Cancelled")
+        return
+    end
+
+    Bridge.setProgress("Loading tracker agent...", 60, 1)
+    local loaded = Gamelink.getLoadedScripts()
+    if loaded and #loaded > 0 then
+        script_handle = loaded[1]
+        for i = 2, #loaded do
+            if loaded[i] > script_handle then
+                script_handle = loaded[i]
+            end
+        end
+        Core.log("Reusing parked tracker agent (handle: "
+            .. tostring(script_handle) .. ")")
+    else
+        local load_result_handle, load_result_err = Gamelink.loadScript("unity_mono_tracker.lua", {
+            runtime = "lua",
+        })
+        if load_result_err then
+            Core.error("Failed to load tracker: " .. (load_result_err or "unknown"))
+            Bridge.shutdown("Tracker load failed")
+            return
+        end
+        script_handle = load_result_handle
+    end
+
+    tick_in_flight = false
+    tick_wait_seconds = 0
+    no_data_count = 0
+    Core.log("Tracker agent loaded (handle: " .. tostring(script_handle) .. ")")
+
+    if Bridge.isCancelled() then
+        Bridge.shutdown("Cancelled")
+        return
+    end
+
+    Bridge.setProgress("Initializing engine...", 80, 5)
+    local send_result_ok, send_result_err = Gamelink.send(script_handle, { type = "init" })
+    if send_result_err then
+        Core.error("Failed to send init: " .. (send_result_err or "unknown"))
+        Bridge.shutdown("Init send failed")
+        return
+    end
+
+    local init_ok = false
+    while true do
+        if Bridge.isCancelled() then
+            Bridge.shutdown("Cancelled")
+            return
+        end
+
+        local messages = Gamelink.poll(script_handle)
+        if messages then
+            for _, msg in ipairs(messages) do
+                if msg.type == "log" and msg.payload then
+                    Core.log("[agent] " .. tostring(msg.payload))
+                end
+                if msg.type == "data" and msg.payload then
+                    local d = msg.payload
+                    if d.type == "progress" then
+                        Bridge.setProgress(d.message or "Discovering...", 80 + (d.percent or 0) * 0.19, 0.5)
+                    elseif d.type == "init-response" then
+                        if d.success then
+                            Core.log("Tracker agent initialized successfully")
+                            init_ok = true
+                        else
+                            Core.error("Agent init failed: " ..
+                                (d.error or "unknown"))
+                        end
+                        break
+                    elseif d.type == "fatal-error" then
+                        Core.error("Agent fatal: " .. (d.error or "unknown"))
+                        break
+                    end
+                end
+            end
+        end
+
+        if init_ok then break end
+        coroutine.yield()
+    end
+
+    if not init_ok then
+        Core.error("Tracker initialization failed")
+        Gamelink.unloadScript(script_handle)
+        script_handle = nil
+        Bridge.shutdown("Tracker init failed")
+        return
+    end
+
+    local tick_result_ok, tick_result_err = Gamelink.send(script_handle, {
+        type = "tick",
+        now_ms = Core.getTimeMillis(),
+    })
+    if tick_result_err then
+        Core.error("Failed to prime tick: " .. (tick_result_err or "unknown"))
+        Gamelink.unloadScript(script_handle)
+        script_handle = nil
+        Bridge.shutdown("Failed to prime tracker")
+        return
+    end
+    tick_in_flight = true
+    tick_wait_seconds = 0
+
+    Bridge.setProgressSnap("Connected!", 100)
+    Core.log("Mono Tracker initialized (pull-tick mode, read-only)")
+
+    -- Optional sidecar; non-fatal on load failure.
+    local net_handle, net_err = Gamelink.loadScript("net_id_capture.lua", { runtime = "lua" })
+    if net_err or not net_handle then
+        Core.log("net_id_capture: not loaded (" .. tostring(net_err or "nil")
+            .. ") -- session-id detection disabled")
+    else
+        net_id_handle = net_handle
+        Core.log("net_id_capture: loaded (handle " .. tostring(net_id_handle) .. ")")
+    end
+end
+
+function update(dt)
+    if not script_handle then return end
+
+    if Gamelink.isError() then
+        local err = Gamelink.getError() or "Unknown error"
+        Core.error("GameLink error: " .. err)
+        Bridge.shutdown("GameLink error: " .. err)
+        return
+    end
+
+    tick_net_id_capture(dt)
+
+    -- Single-drain poll: avoids multi-handle queue races.
+    local messages = Gamelink.poll()
+
+    local had_data = false
+    if messages then
+        for _, msg in ipairs(messages) do
+            if net_id_handle and msg.handle == net_id_handle then
+                handle_net_id_message(msg)
+                goto continue_msg
+            end
+
+            tick_in_flight = false
+            tick_wait_seconds = 0
+
+            if msg.type == "log" and msg.payload then
+                Core.log("[agent] " .. tostring(msg.payload))
+            end
+
+            if msg.type == "data" and msg.payload then
+                had_data = true
+                no_data_count = 0
+                local d = msg.payload
+
+                -- Log fatal errors but stay attached; engine detects process exit.
+                if d.type == "fatal-error" then
+                    Core.error("Agent error: " .. (d.error or "unknown"))
+                end
+
+                if d.posX then
+                    GameStore.setCameraPosition(
+                        d.posX, d.posY, -(d.posZ or 0))
+                    if is_searching then
+                        is_searching = false
+                        Bridge.push("searching_for_player", false, 30000)
+                        Core.log("Player position recovered")
+                    end
+                end
+
+                -- setCameraBasis bypasses the euler decomposition that was
+                -- spinning the listener at zenith/nadir. Unity is +Z forward,
+                -- ours is -Z, so negate Z on both fwd and up.
+                if d.upX ~= nil then
+                    local fx = d.fwdX or 0
+                    local fy = d.fwdY or 0
+                    local fz = -(d.fwdZ or 0)
+                    local ux = d.upX or 0
+                    local uy = d.upY or 1
+                    local uz = -(d.upZ or 0)
+                    GameStore.setCameraBasis(fx, fy, fz, ux, uy, uz)
+                end
+
+                -- Skip "Unknown" so audio sources stay on the canonical
+                -- "default" level until the agent resolves a real scene.
+                if type(d.sceneName) == "string"
+                    and d.sceneName ~= ""
+                    and d.sceneName ~= "Unknown"
+                    and d.sceneName ~= last_scene_name
+                then
+                    GameStore.setLevel(d.sceneName)
+                    last_scene_name = d.sceneName
+                    Core.log("Scene changed: " .. d.sceneName)
+                end
+            end
+
+            ::continue_msg::
+        end
+    end
+
+    if not had_data then
+        no_data_count = no_data_count + 1
+        if no_data_count == 20 then
+            Core.warn("No position data for 1 second (loading screen?)")
+            is_searching = true
+            Bridge.push("searching_for_player", true, 30000)
+        elseif no_data_count % SEARCHING_LOG_INTERVAL == 0 then
+            Core.warn("Still searching for player... ("
+                .. math.floor(no_data_count / 20) .. "s)")
+        end
+    end
+
+    local dt_seconds = dt
+    if not dt_seconds or dt_seconds <= 0 then dt_seconds = 1 / 60 end
+
+    if tick_in_flight then
+        tick_wait_seconds = tick_wait_seconds + dt_seconds
+        if tick_wait_seconds >= TICK_STALL_RESET_SECONDS then
+            tick_in_flight = false
+            tick_wait_seconds = 0
+        end
+    end
+
+    if not tick_in_flight then
+        local tick_result_ok, tick_result_err = Gamelink.send(script_handle, {
+            type = "tick",
+            now_ms = Core.getTimeMillis(),
+        })
+        if tick_result_err then
+            Core.error("Tick send failed: " .. (tick_result_err or "unknown"))
+            Bridge.shutdown("Tracker communication failed")
+            return
+        end
+        tick_in_flight = true
+        tick_wait_seconds = 0
+    end
+end
+
+function dispose()
+    Core.log("Mono Tracker: Disposing...")
+    -- Runtime auto-cleans Gamelink after return; no manual unload/detach.
+    script_handle = nil
+    net_id_handle = nil
+    last_session_id = nil
+    tick_in_flight = false
+    tick_wait_seconds = 0
+end

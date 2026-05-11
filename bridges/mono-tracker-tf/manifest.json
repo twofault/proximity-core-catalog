@@ -1,0 +1,52 @@
+{
+  "id": "mono-tracker-tf",
+  "name": "Unity Mono Tracker",
+  "description": "Tracks camera position in Unity games using Mono runtime",
+  "version": "1.0.0",
+  "author": "twofault",
+  "entry": "main.lua",
+  "gamelink_script": "unity_mono_tracker.lua",
+  "game_engines": [
+    "unity-mono"
+  ],
+  "compatibility": {
+    "platforms": [
+      "windows"
+    ],
+    "executable": {
+      "none_of": [
+        {
+          "contains": "crashhandler"
+        }
+      ]
+    },
+    "structure": {
+      "sibling_pattern": "*_Data"
+    },
+    "files": {
+      "require_all": [
+        "{sibling}/Managed/Assembly-CSharp.dll"
+      ],
+      "forbid": [
+        "GameAssembly.dll"
+      ]
+    }
+  },
+  "capabilities": {
+    "uses_blockable_apis": true,
+    "uses_game_session": true
+  },
+  "http_endpoints": [],
+  "warn_on_unlisted_targets": true,
+  "bridge_scope": "generic",
+  "tags": [
+    "unity",
+    "mono",
+    "generic",
+    "engine",
+    "dotnet",
+    "experimental",
+    "recommended",
+    "broad_support"
+  ]
+}

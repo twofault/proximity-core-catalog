@@ -1,0 +1,16 @@
+{
+  "repo": "twofault/proximity-core-catalog",
+  "default_branch": "main",
+  "bot_name": "twofault-bot",
+  "bot_email": "bot@twofault.dev",
+  "min_app_version": "0.2.0",
+  "reserved_tags": [
+    "recommended",
+    "broad_support",
+    "dev",
+    "official",
+    "verified",
+    "featured"
+  ],
+  "release_keep_count": 10
+}
