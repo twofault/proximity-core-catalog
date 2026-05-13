@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-11T08:21:32.634643Z",
+  "generated_at": "2026-05-13T03:38:10.454991Z",
   "min_app_version": "0.2.0",
   "bridges": [
     {
@@ -23,7 +23,7 @@
       "versions": [
         {
           "version": "1.0.0",
-          "released_at": "2026-05-11T00:00:00Z",
+          "released_at": "2026-05-11T07:32:33Z",
           "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/bedrock-tracker-tf/v1.0.0/bedrock-tracker-tf-1.0.0.zip",
           "sha256": "b016f7825e5600e928b895c95193cb801d7548e48e67491e17a64ee4912b119f",
           "size_bytes": 7743,
@@ -72,7 +72,7 @@
       "versions": [
         {
           "version": "1.0.0",
-          "released_at": "2026-05-11T00:00:00Z",
+          "released_at": "2026-05-11T07:32:37Z",
           "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/dst-tracker-tf/v1.0.0/dst-tracker-tf-1.0.0.zip",
           "sha256": "79f7d7878e8a1433577ac12ddc859d49575893acb0f1979f6c312556a2947295",
           "size_bytes": 14309,
@@ -122,7 +122,7 @@
       "versions": [
         {
           "version": "1.0.0",
-          "released_at": "2026-05-11T00:00:00Z",
+          "released_at": "2026-05-11T07:32:40Z",
           "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/il2cpp-tracker-tf/v1.0.0/il2cpp-tracker-tf-1.0.0.zip",
           "sha256": "5ff15dc0e9586025493e66d7bbb06d63e7f088ebbb07697112484846f3b05057",
           "size_bytes": 15077,
@@ -172,7 +172,7 @@
       "versions": [
         {
           "version": "1.0.0",
-          "released_at": "2026-05-11T00:00:00Z",
+          "released_at": "2026-05-11T07:32:43Z",
           "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/minecraft-tracker-tf/v1.0.0/minecraft-tracker-tf-1.0.0.zip",
           "sha256": "9a6a2593690f9c58778564a4b130f597c5ffd3d95b7bb295571812a0e56127ae",
           "size_bytes": 11380,
@@ -239,7 +239,7 @@
       "versions": [
         {
           "version": "1.0.0",
-          "released_at": "2026-05-11T00:00:00Z",
+          "released_at": "2026-05-11T07:32:47Z",
           "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/mono-tracker-tf/v1.0.0/mono-tracker-tf-1.0.0.zip",
           "sha256": "66d45347be9c7091ac7e9fbb85003787b98d5d0bd54693c2973b2c961286c8d5",
           "size_bytes": 19902,
@@ -277,6 +277,65 @@
       ]
     },
     {
+      "id": "subnautica-tracker-tf",
+      "name": "Subnautica Tracker",
+      "description": "Tracks Subnautica camera + underwater/vehicle state for accurate spatial audio. Detects when you're in a base, Seamoth, Cyclops, or Exosuit to gate the underwater filter, and enables the radio filter when you're in a vehicle or Cyclops.",
+      "author": "twofault",
+      "tags": [
+        "subnautica",
+        "unity",
+        "mono",
+        "underwater",
+        "radio"
+      ],
+      "icon_url": null,
+      "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/subnautica-tracker-tf/README.md",
+      "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/subnautica-tracker-tf",
+      "latest_version": "0.1.0",
+      "versions": [
+        {
+          "version": "0.1.0",
+          "released_at": "2026-05-13T03:37:58Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/subnautica-tracker-tf/v0.1.0/subnautica-tracker-tf-0.1.0.zip",
+          "sha256": "26c9ea2f2ce13157ee467e10d8cb5bd9123a3c671fdedca375f5b206fa949709",
+          "size_bytes": 12723,
+          "changelog": "",
+          "min_app_version": "0.2.0",
+          "yanked": false,
+          "yank_reason": "",
+          "game_engines": [
+            "unity-mono"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "Subnautica.exe"
+                },
+                {
+                  "exact": "Subnautica"
+                }
+              ]
+            },
+            "structure": {
+              "sibling_pattern": "Subnautica_Data"
+            },
+            "files": {
+              "require_all": [
+                "{sibling}/Managed/Assembly-CSharp.dll"
+              ],
+              "forbid": [
+                "GameAssembly.dll"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
       "id": "terraria-tracker-tf",
       "name": "Terraria",
       "description": "Tracks player position in Terraria via memory scanning (read-only, no code injection)",
@@ -295,7 +354,7 @@
       "versions": [
         {
           "version": "1.0.0",
-          "released_at": "2026-05-11T00:00:00Z",
+          "released_at": "2026-05-11T07:32:50Z",
           "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/terraria-tracker-tf/v1.0.0/terraria-tracker-tf-1.0.0.zip",
           "sha256": "fa631d9d7ed224ccee44b21afc20f8bdcce8ce9a0e261a8151b03f99bc068c16",
           "size_bytes": 11166,
@@ -344,7 +403,7 @@
       "versions": [
         {
           "version": "1.0.0",
-          "released_at": "2026-05-11T00:00:00Z",
+          "released_at": "2026-05-11T07:32:54Z",
           "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/unreal-tracker-tf/v1.0.0/unreal-tracker-tf-1.0.0.zip",
           "sha256": "06df37d7972d89d1d41a595c89a877f034bd47cd180c786f253f9b44663674db",
           "size_bytes": 38472,
