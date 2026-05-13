@@ -779,18 +779,143 @@ end
 
 send({ type = "heartbeat", status = "loading" })
 
-local function parse_message(msg)
-    if type(msg) == "string" then
-        if type(json) == "table" and type(json.decode) == "function" then
-            local ok, dec = pcall(json.decode, msg)
-            if ok and type(dec) == "table" then return dec end
+-- Minimal JSON decoder for host→agent messages.
+--
+-- Frida's gumlua sandbox does not expose a JSON library, so an incoming
+-- `recv` message arrives as a raw JSON string with no built-in way to
+-- parse it. The previous regex fallback only matched the `type` field and
+-- silently dropped everything else, so cached pointers in `data` never
+-- reached do_init() and the agent re-ran the ~60s memory scan on every
+-- attach. This decoder handles the well-formed JSON the host emits:
+-- string keys, number/string/bool/null values, nested objects. Numbers
+-- decode as Lua integers when they have no fractional part (preserves
+-- the 64-bit pointer values exactly).
+local function json_decode(s)
+    local i = 1
+    local len = #s
+    local parse_value
+    local function skip_ws()
+        while i <= len do
+            local c = s:sub(i, i)
+            if c == " " or c == "\t" or c == "\n" or c == "\r" then i = i + 1
+            else break end
         end
-        if msg:find('"type"%s*:%s*"init"')     then return { type = "init" } end
-        if msg:find('"type"%s*:%s*"tick"')     then return { type = "tick" } end
-        if msg:find('"type"%s*:%s*"shutdown"') then return { type = "shutdown" } end
+    end
+    local function parse_string()
+        i = i + 1  -- skip opening quote
+        local start = i
+        local out = nil
+        while i <= len do
+            local c = s:sub(i, i)
+            if c == '"' then
+                local result = out and (out .. s:sub(start, i - 1)) or s:sub(start, i - 1)
+                i = i + 1
+                return result
+            elseif c == '\\' then
+                out = (out or "") .. s:sub(start, i - 1)
+                local esc = s:sub(i + 1, i + 1)
+                if esc == 'n' then out = out .. '\n'
+                elseif esc == 't' then out = out .. '\t'
+                elseif esc == 'r' then out = out .. '\r'
+                elseif esc == '"' then out = out .. '"'
+                elseif esc == '\\' then out = out .. '\\'
+                elseif esc == '/' then out = out .. '/'
+                else out = out .. esc end
+                i = i + 2
+                start = i
+            else
+                i = i + 1
+            end
+        end
         return nil
     end
+    local function parse_number()
+        local start = i
+        if s:sub(i, i) == '-' then i = i + 1 end
+        while i <= len do
+            local c = s:sub(i, i)
+            if c:match('[%d%.eE+%-]') then i = i + 1 else break end
+        end
+        local num_str = s:sub(start, i - 1)
+        local n = tonumber(num_str)
+        if n and not num_str:find('[%.eE]') then
+            -- Integer literal — round-trip as Lua integer to preserve
+            -- 64-bit pointer values that exceed f64 mantissa precision.
+            local int_n = math.tointeger(n)
+            if int_n then return int_n end
+        end
+        return n
+    end
+    local function parse_object()
+        local obj = {}
+        i = i + 1  -- skip {
+        skip_ws()
+        if s:sub(i, i) == '}' then i = i + 1; return obj end
+        while i <= len do
+            skip_ws()
+            if s:sub(i, i) ~= '"' then return nil end
+            local key = parse_string()
+            if not key then return nil end
+            skip_ws()
+            if s:sub(i, i) ~= ':' then return nil end
+            i = i + 1
+            local val = parse_value()
+            obj[key] = val
+            skip_ws()
+            local c = s:sub(i, i)
+            if c == ',' then i = i + 1
+            elseif c == '}' then i = i + 1; return obj
+            else return nil end
+        end
+        return nil
+    end
+    local function parse_array()
+        local arr = {}
+        i = i + 1  -- skip [
+        skip_ws()
+        if s:sub(i, i) == ']' then i = i + 1; return arr end
+        local idx = 1
+        while i <= len do
+            arr[idx] = parse_value()
+            idx = idx + 1
+            skip_ws()
+            local c = s:sub(i, i)
+            if c == ',' then i = i + 1
+            elseif c == ']' then i = i + 1; return arr
+            else return nil end
+        end
+        return nil
+    end
+    parse_value = function()
+        skip_ws()
+        local c = s:sub(i, i)
+        if c == '{' then return parse_object()
+        elseif c == '[' then return parse_array()
+        elseif c == '"' then return parse_string()
+        elseif c == 't' and s:sub(i, i + 3) == 'true' then i = i + 4; return true
+        elseif c == 'f' and s:sub(i, i + 4) == 'false' then i = i + 5; return false
+        elseif c == 'n' and s:sub(i, i + 3) == 'null' then i = i + 4; return nil
+        elseif c == '-' or (c >= '0' and c <= '9') then return parse_number()
+        end
+        return nil
+    end
+    return parse_value()
+end
+
+local function parse_message(msg)
     if type(msg) == "table" then return msg end
+    if type(msg) ~= "string" then return nil end
+
+    local ok, dec = pcall(json_decode, msg)
+    if ok and type(dec) == "table" then return dec end
+
+    -- Fallback if the embedded decoder ever crashes — at least surface
+    -- the message type so the bridge doesn't get stuck waiting forever
+    -- on init/tick. `data` will be nil, which is the same lossy behavior
+    -- that motivated writing the decoder above.
+    if msg:find('"type"%s*:%s*"init"')     then return { type = "init" } end
+    if msg:find('"type"%s*:%s*"tick"')     then return { type = "tick" } end
+    if msg:find('"type"%s*:%s*"shutdown"') then return { type = "shutdown" } end
     return nil
 end
 

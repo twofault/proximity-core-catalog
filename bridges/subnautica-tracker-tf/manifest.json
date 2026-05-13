@@ -2,7 +2,7 @@
   "id": "subnautica-tracker-tf",
   "name": "Subnautica Tracker",
   "description": "Tracks Subnautica camera + underwater/vehicle state for accurate spatial audio. Detects when you're in a base, Seamoth, Cyclops, or Exosuit to gate the underwater filter, and enables the radio filter when you're in a vehicle or Cyclops.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "twofault",
   "entry": "main.lua",
   "gamelink_script": "subnautica_tracker.lua",
