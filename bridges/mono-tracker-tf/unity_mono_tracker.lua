@@ -1,5 +1,8 @@
--- Unity Mono camera tracker agent. Resolves Mono metadata then invokes
--- the underlying icalls directly (mono_runtime_invoke isn't whitelisted).
+-- Unity Mono camera tracker agent. Invokes Unity icalls via Hs.mono.call
+-- (privileged C-side resolution + dispatch). Uses native.call on Mono
+-- metadata APIs only to obtain the MonoMethod pointer for the scene-
+-- discovery disassembly walk; the icall ADDRESS is never exposed to
+-- bridge code.
 
 local PTR_SIZE = process.get_pointer_size()
 local MONO_HEADER_SIZE = 2 * PTR_SIZE  -- vtable + sync_block
@@ -93,15 +96,15 @@ local function resolve_api()
     api.field_get_offset           = r("mono_field_get_offset")
     -- mono_string_to_utf8 not whitelisted (leaks without mono_free).
     api.object_unbox               = r("mono_object_unbox")
-    api.compile_method             = r("mono_compile_method")
+    -- mono_compile_method no longer on the allowlist. Icall addresses
+    -- are resolved by Hs.mono.call in privileged C; bridge code never
+    -- sees them. The previous "needed for JIT stub discovery" guard
+    -- was vestigial (no code actually called compile_method).
 
     log("Mono: API -- " .. resolve_count .. " resolved, " .. fail_count .. " failed")
 
     if not api.get_root_domain then
         return false, mono_dll .. " exports not found"
-    end
-    if not api.compile_method then
-        return false, "mono_compile_method not found (needed for JIT stub discovery)"
     end
     return true
 end
@@ -290,75 +293,39 @@ local function read_native_up(native_ptr)
     return { x = x, y = y, z = z }
 end
 
--- icall address sits at MonoMethod+0x28 in Mono 5.x/6.x. The icall itself
--- is a native function in UnityPlayer.dll; whitelist via native.lookup.
+-- ICALL_OFFSET (MonoMethod+0x28) is used ONLY by the scene-discovery
+-- disassembly path below; icall INVOCATION goes through Hs.mono.call
+-- which resolves the address in privileged C.
 
 local ICALL_OFFSET = 0x28
 
-local icalls = {}
-
--- Try every published whitelist variant; the C#-style signature suffix
--- differs between Mono releases.
-local function resolve_icall_variants(display_name, whitelist_names, mono_method)
-    if not mono_method or mono_method == 0 then
-        log("Mono: icall " .. display_name .. " skipped (method ptr nil)")
-        return nil
-    end
-    local addr = memory.read_pointer(mono_method + ICALL_OFFSET)
-    if not addr or addr == 0 then
-        log("Mono: icall " .. display_name .. " has nil address at MonoMethod+0x" ..
-            string.format("%X", ICALL_OFFSET))
-        return nil
-    end
-    local last_err = nil
-    for _, name in ipairs(whitelist_names) do
-        local ok, resolved, err = pcall(native.lookup, mono_dll, name, addr)
-        if ok and not err and resolved and resolved ~= 0 then
-            log("Mono: icall " .. display_name .. " = 0x" ..
-                string.format("%X", resolved) .. " (via " .. name .. ")")
-            return resolved
-        end
-        last_err = err or resolved
-    end
-    log("Mono: whitelist failed for " .. display_name .. ": " .. tostring(last_err))
-    return nil
+-- Hs.mono.call signals errors via (nil, err_string), NOT via Lua error().
+-- pcall() returns true even when the helper returned (nil, err), which
+-- would let void calls silently fail and let callers read stale buffer
+-- contents (Codex post-review finding). Wrap in a Lua error() so a single
+-- pcall guard covers BOTH thrown errors AND tuple-style errors.
+local function hs_mono_call(class_name, method_name, ret, arg_types, args)
+    local v, e = Hs.mono.call(class_name, method_name, ret, arg_types, args)
+    if e ~= nil then error(e, 2) end
+    return v
 end
 
+-- Track which optional methods the bridge would invoke. The Hs.mono.call
+-- helper resolves and caches each (class, method) pair on first use; this
+-- table is a lightweight availability bitmap so the scene path can short-
+-- circuit when GetActiveScene_Injected isn't present on this Unity build.
+local hs_available = {
+    scene_get_active = false,
+}
+
 local function resolve_icalls()
-    icalls.camera_get_main = resolve_icall_variants(
-        "Camera.get_main",
-        { "UnityEngine.Camera::get_main()" },
-        mono_methods.camera_get_main)
-
-    icalls.get_transform = resolve_icall_variants(
-        "get_transform",
-        { "UnityEngine.Component::get_transform()" },
-        mono_methods.get_transform)
-
-    if mono_methods.get_position_injected then
-        icalls.get_position = resolve_icall_variants(
-            "get_position_Injected",
-            { "UnityEngine.Transform::get_position_Injected(UnityEngine.Vector3&)" },
-            mono_methods.get_position_injected)
-    end
-
-    if mono_methods.get_rotation_injected then
-        icalls.get_rotation = resolve_icall_variants(
-            "get_rotation_Injected",
-            { "UnityEngine.Transform::get_rotation_Injected(UnityEngine.Quaternion&)" },
-            mono_methods.get_rotation_injected)
-    end
-
-    if mono_methods.scene_get_active_injected then
-        icalls.scene_get_active = resolve_icall_variants(
-            "GetActiveScene_Injected",
-            {
-                "UnityEngine.SceneManagement.SceneManager::GetActiveScene_Injected(UnityEngine.SceneManagement.Scene&)",
-            },
-            mono_methods.scene_get_active_injected)
-    end
-
-    return icalls.camera_get_main ~= nil
+    -- Scene-name icall availability mirrors whether the MonoMethod
+    -- pointer was located by resolve_metadata above. The pointer
+    -- itself is still needed (by the disassembly walk in
+    -- attempt_discovery); Hs.mono.call resolves the icall address
+    -- separately on first invocation.
+    hs_available.scene_get_active = (mono_methods.scene_get_active_injected ~= nil)
+    return true
 end
 
 -- Native scene-name discovery.
@@ -530,7 +497,7 @@ local function scan_for_rip_load_to_pointer(addr, span)
 end
 
 local function discover_singleton_static_addr()
-    if not icalls.scene_get_active then return nil, "no GetActiveScene_Injected" end
+    if not hs_available.scene_get_active then return nil, "no GetActiveScene_Injected" end
     local active_icall = safe_read_pointer(
         mono_methods.scene_get_active_injected + ICALL_OFFSET)
     if not active_icall then
@@ -681,7 +648,7 @@ local function attempt_discovery()
     if scene_native.discovery_attempted then return end
     scene_native.discovery_attempted = true
 
-    if not icalls.scene_get_active then
+    if not hs_available.scene_get_active then
         log("Mono: scene discovery skipped (GetActiveScene_Injected not available; " ..
             "Unity 5/2017 pre-_Injected build?)")
         return
@@ -706,7 +673,9 @@ local function attempt_discovery()
 
     -- Need a live handle to drive Pass C and name-offset validation.
     if not scene_buf then scene_buf = memory.alloc(16) end
-    pcall(native.call, icalls.scene_get_active, "void", {"pointer"}, {scene_buf})
+    pcall(hs_mono_call,
+        "UnityEngine.SceneManagement.SceneManager", "GetActiveScene_Injected",
+        "void", {"pointer"}, {scene_buf})
     local probe_handle = memory.read_s32(scene_buf)
     if not probe_handle or probe_handle == 0 then
         log("Mono: scene discovery: GetActiveScene_Injected returned handle=0; " ..
@@ -806,13 +775,14 @@ local scene_cache = {
 }
 
 local function read_scene_name()
-    if not icalls.scene_get_active then return scene_cache.last_good_name end
+    if not hs_available.scene_get_active then return scene_cache.last_good_name end
 
     -- Step 1: live handle. GetActiveScene_Injected writes only an int
     -- (no managed allocation), so it's safe without Mono thread context.
     if not scene_buf then scene_buf = memory.alloc(16) end
-    local ok = pcall(native.call, icalls.scene_get_active, "void",
-        {"pointer"}, {scene_buf})
+    local ok = pcall(hs_mono_call,
+        "UnityEngine.SceneManagement.SceneManager", "GetActiveScene_Injected",
+        "void", {"pointer"}, {scene_buf})
     if not ok then return scene_cache.last_good_name end
     local icall_handle = memory.read_s32(scene_buf)
     if not icall_handle or icall_handle == 0 then
@@ -873,20 +843,22 @@ local vec3_buf = nil
 local quat_buf = nil
 
 local function read_frame()
-    if not icalls.camera_get_main then return nil end
-    local ok, cam_ptr = pcall(native.call, icalls.camera_get_main, "pointer", {}, {})
+    local ok, cam_ptr = pcall(hs_mono_call,
+        "UnityEngine.Camera", "get_main",
+        "pointer", {}, {})
     if not ok or not cam_ptr or cam_ptr == 0 then return nil end
 
-    if not icalls.get_transform then return nil end
-    local tok, tf_ptr = pcall(native.call, icalls.get_transform, "pointer",
-        {"pointer"}, {cam_ptr})
+    local tok, tf_ptr = pcall(hs_mono_call,
+        "UnityEngine.Component", "get_transform",
+        "pointer", {"pointer"}, {cam_ptr})
     if not tok or not tf_ptr or tf_ptr == 0 then return nil end
 
     local pos = nil
-    if icalls.get_position then
+    do
         if not vec3_buf then vec3_buf = memory.alloc(16) end
-        local pok = pcall(native.call, icalls.get_position, "void",
-            {"pointer", "pointer"}, {tf_ptr, vec3_buf})
+        local pok = pcall(hs_mono_call,
+            "UnityEngine.Transform", "get_position_Injected",
+            "void", {"pointer", "pointer"}, {tf_ptr, vec3_buf})
         if pok then
             local x = memory.read_f32(vec3_buf)
             local y = memory.read_f32(vec3_buf + 4)
@@ -909,10 +881,11 @@ local function read_frame()
     if not pos then return nil end
 
     local fwd, up = nil, nil
-    if icalls.get_rotation then
+    do
         if not quat_buf then quat_buf = memory.alloc(16) end
-        local rok = pcall(native.call, icalls.get_rotation, "void",
-            {"pointer", "pointer"}, {tf_ptr, quat_buf})
+        local rok = pcall(hs_mono_call,
+            "UnityEngine.Transform", "get_rotation_Injected",
+            "void", {"pointer", "pointer"}, {tf_ptr, quat_buf})
         if rok then
             local qx = memory.read_f32(quat_buf)
             local qy = memory.read_f32(quat_buf + 4)
@@ -1018,7 +991,7 @@ local function handle_init()
         mono_methods.camera_get_main))
     log("  get_transform:   0x" .. string.format("%X",
         mono_methods.get_transform))
-    log("  Scene tracking:  " .. ((icalls.scene_get_active and icalls.scene_get_name)
+    log("  Scene tracking:  " .. (hs_available.scene_get_active
         and "available" or "unavailable"))
     log("==============================================")
 end

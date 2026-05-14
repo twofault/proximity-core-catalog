@@ -23,13 +23,6 @@ local MONO_MODULE_CANDIDATES = {
     "mono-2.0-bdwgc.dll", "mono-2.0-sgen.dll", "mono.dll",
 }
 
-local UNITY_IMAGE_CANDIDATES = {
-    "UnityEngine.CoreModule", "UnityEngine.CoreModule.dll",
-    "UnityEngine", "UnityEngine.dll",
-}
-
-local ICALL_OFFSET = 0x28  -- MonoMethod+0x28 for icall methods
-
 local state = {
     initialized = false,
     consecutive_errors = 0,
@@ -40,10 +33,7 @@ local state = {
 
 local mono_dll = nil
 local api = {}
-local mono_methods = {}
-local icalls = {}
 local image_assembly_csharp = nil
-local image_unity = nil
 local classes = {}
 local off = {}
 
@@ -74,19 +64,27 @@ local function resolve_mono_module()
 end
 
 local function resolve_api()
-    api.get_root_domain              = r("mono_get_root_domain")
-    api.image_loaded                 = r("mono_image_loaded")
-    api.class_from_name              = r("mono_class_from_name")
-    api.class_get_method_from_name   = r("mono_class_get_method_from_name")
-    api.class_get_property_from_name = r("mono_class_get_property_from_name")
-    api.property_get_get_method      = r("mono_property_get_get_method")
-    api.class_get_field_from_name    = r("mono_class_get_field_from_name")
-    api.field_get_offset             = r("mono_field_get_offset")
+    api.get_root_domain           = r("mono_get_root_domain")
+    api.image_loaded              = r("mono_image_loaded")
+    api.class_from_name           = r("mono_class_from_name")
+    api.class_get_field_from_name = r("mono_class_get_field_from_name")
+    api.field_get_offset          = r("mono_field_get_offset")
 
     if not api.get_root_domain or not api.image_loaded or not api.class_from_name then
         return false, "Required Mono API exports missing"
     end
     return true
+end
+
+-- Hs.mono.call signals errors via (nil, err_string), NOT via Lua error().
+-- pcall() returns true even when the helper returned (nil, err), which
+-- would let void calls silently read stale buffer contents (Codex post-
+-- review finding). Wrap in a Lua error() so a single pcall guard covers
+-- both thrown errors AND tuple-style errors.
+local function hs_mono_call(class_name, method_name, ret, arg_types, args)
+    local v, e = Hs.mono.call(class_name, method_name, ret, arg_types, args)
+    if e ~= nil then error(e, 2) end
+    return v
 end
 
 local function image_loaded(name)
@@ -104,25 +102,6 @@ local function class_from_name(image, ns, name)
     return nil
 end
 
-local function method_from_name(klass, name, argc)
-    if not klass or klass == 0 then return nil end
-    local ok, m, err = pcall(native.call, api.class_get_method_from_name,
-        "pointer", {"pointer", "cstring", "int"}, {klass, name, argc})
-    if ok and not err and m and m ~= 0 then return m end
-    return nil
-end
-
-local function getter_method(klass, prop)
-    if not klass or klass == 0 then return nil end
-    local ok, p, err = pcall(native.call, api.class_get_property_from_name,
-        "pointer", {"pointer", "cstring"}, {klass, prop})
-    if not ok or err or not p or p == 0 then return nil end
-    local ok2, g, err2 = pcall(native.call, api.property_get_get_method,
-        "pointer", {"pointer"}, {p})
-    if ok2 and not err2 and g and g ~= 0 then return g end
-    return nil
-end
-
 local function field_offset(klass, name)
     if not klass or klass == 0 then return nil end
     local ok, f, err = pcall(native.call, api.class_get_field_from_name,
@@ -134,53 +113,18 @@ local function field_offset(klass, name)
     return o
 end
 
-local function resolve_icall_variants(name, mono_method, variants)
-    if not mono_method or mono_method == 0 then return nil end
-    local addr = memory.read_pointer(mono_method + ICALL_OFFSET)
-    if not addr or addr == 0 then return nil end
-    for _, v in ipairs(variants) do
-        local ok, resolved, err = pcall(native.lookup, mono_dll, v, addr)
-        if ok and not err and resolved and resolved ~= 0 then return resolved end
-    end
-    return nil
-end
-
 local function resolve_metadata()
-    image_unity = nil
-    for _, name in ipairs(UNITY_IMAGE_CANDIDATES) do
-        image_unity = image_loaded(name)
-        if image_unity then break end
-    end
-    if not image_unity then return false, "UnityEngine image not found" end
-
+    -- The UnityEngine image is no longer used at the bridge level — the
+    -- Hs.mono.call helper resolves it internally on first invocation.
+    -- We still need Assembly-CSharp for the Subnautica-specific class
+    -- reads below.
     image_assembly_csharp = image_loaded("Assembly-CSharp") or image_loaded("Assembly-CSharp.dll")
     if not image_assembly_csharp then
         return false, "Assembly-CSharp image not found"
     end
 
-    -- Unity classes (for camera tracking)
-    local cam_class   = class_from_name(image_unity, "UnityEngine", "Camera")
-    local comp_class  = class_from_name(image_unity, "UnityEngine", "Component")
-    local xform_class = class_from_name(image_unity, "UnityEngine", "Transform")
-    local sm_class    = class_from_name(image_unity,
-        "UnityEngine.SceneManagement", "SceneManager")
-
-    mono_methods.camera_get_main     = method_from_name(cam_class, "get_main", 0)
-    mono_methods.get_transform       = getter_method(comp_class, "transform")
-    mono_methods.get_position_inj    = method_from_name(xform_class,
-        "get_position_Injected", 1)
-    mono_methods.get_rotation_inj    = method_from_name(xform_class,
-        "get_rotation_Injected", 1)
-    if sm_class then
-        mono_methods.scene_get_active_inj = method_from_name(sm_class,
-            "GetActiveScene_Injected", 1)
-    end
-
-    if not mono_methods.camera_get_main or not mono_methods.get_transform then
-        return false, "Unity icall metadata incomplete"
-    end
-
-    -- Subnautica classes
+    -- Subnautica classes (loaded from Assembly-CSharp via the regular
+    -- Mono metadata path; these are not icalls and stay on native.call).
     classes.Player  = class_from_name(image_assembly_csharp, "", "Player")
     classes.SubRoot = class_from_name(image_assembly_csharp, "", "SubRoot")
     classes.SeaMoth = class_from_name(image_assembly_csharp, "", "SeaMoth")
@@ -211,31 +155,6 @@ local function resolve_metadata()
     end
 
     return true
-end
-
-local function resolve_icalls()
-    icalls.camera_get_main = resolve_icall_variants("Camera.get_main",
-        mono_methods.camera_get_main,
-        { "UnityEngine.Camera::get_main()", "UnityEngine.Camera::get_main" })
-    icalls.get_transform = resolve_icall_variants("Component.get_transform",
-        mono_methods.get_transform,
-        { "UnityEngine.Component::get_transform()",
-          "UnityEngine.Component::get_transform" })
-    icalls.get_position = resolve_icall_variants("Transform.get_position",
-        mono_methods.get_position_inj,
-        { "UnityEngine.Transform::get_position_Injected(UnityEngine.Vector3&)",
-          "UnityEngine.Transform::get_position_Injected" })
-    icalls.get_rotation = resolve_icall_variants("Transform.get_rotation",
-        mono_methods.get_rotation_inj,
-        { "UnityEngine.Transform::get_rotation_Injected(UnityEngine.Quaternion&)",
-          "UnityEngine.Transform::get_rotation_Injected" })
-    if mono_methods.scene_get_active_inj then
-        icalls.scene_get_active = resolve_icall_variants("Scene.GetActive",
-            mono_methods.scene_get_active_inj,
-            { "UnityEngine.SceneManagement.SceneManager::GetActiveScene_Injected(UnityEngine.SceneManagement.Scene&)",
-              "UnityEngine.SceneManagement.SceneManager::GetActiveScene_Injected" })
-    end
-    return icalls.camera_get_main ~= nil and icalls.get_transform ~= nil
 end
 
 -- ── Player singleton discovery via memory scan ──
@@ -482,19 +401,22 @@ local function read_native_up(native_ptr)
 end
 
 local function read_camera()
-    if not icalls.camera_get_main then return nil end
-    local ok, cam = pcall(native.call, icalls.camera_get_main, "pointer", {}, {})
+    local ok, cam = pcall(hs_mono_call,
+        "UnityEngine.Camera", "get_main",
+        "pointer", {}, {})
     if not ok or not cam or cam == 0 then return nil end
 
-    local tok, tf = pcall(native.call, icalls.get_transform, "pointer",
-        {"pointer"}, {cam})
+    local tok, tf = pcall(hs_mono_call,
+        "UnityEngine.Component", "get_transform",
+        "pointer", {"pointer"}, {cam})
     if not tok or not tf or tf == 0 then return nil end
 
     local pos, fwd, up
-    if icalls.get_position then
+    do
         if not vec3_buf then vec3_buf = memory.alloc(16) end
-        local pok = pcall(native.call, icalls.get_position, "void",
-            {"pointer", "pointer"}, {tf, vec3_buf})
+        local pok = pcall(hs_mono_call,
+            "UnityEngine.Transform", "get_position_Injected",
+            "void", {"pointer", "pointer"}, {tf, vec3_buf})
         if pok then
             local x = memory.read_f32(vec3_buf)
             local y = memory.read_f32(vec3_buf + 4)
@@ -513,10 +435,11 @@ local function read_camera()
     end
     if not pos then return nil end
 
-    if icalls.get_rotation then
+    do
         if not quat_buf then quat_buf = memory.alloc(16) end
-        local rok = pcall(native.call, icalls.get_rotation, "void",
-            {"pointer", "pointer"}, {tf, quat_buf})
+        local rok = pcall(hs_mono_call,
+            "UnityEngine.Transform", "get_rotation_Injected",
+            "void", {"pointer", "pointer"}, {tf, quat_buf})
         if rok then
             local qx = memory.read_f32(quat_buf)
             local qy = memory.read_f32(quat_buf + 4)
@@ -655,12 +578,9 @@ local function do_init(init_data)
         return
     end
 
-    send({ type = "progress", percent = 25, message = "Resolving Unity icalls..." })
-    if not resolve_icalls() then
-        send({ type = "init-response", success = false,
-            error = "Failed to resolve Unity icalls" })
-        return
-    end
+    -- Unity icall resolution happens on-demand in Hs.mono.call; nothing
+    -- to do at init time. The helper's internal cache absorbs repeat
+    -- calls within the same attach.
 
     -- Fast path: try cached addresses from a prior attach to the same process.
     local player_ptr, vtable

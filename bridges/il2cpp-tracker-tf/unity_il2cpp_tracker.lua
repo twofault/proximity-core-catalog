@@ -1,6 +1,8 @@
 -- Unity IL2CPP camera tracker.
--- Uses IL2CPP C API for metadata, then il2cpp_resolve_icall + native.lookup
--- to call Unity internals (Camera::get_main, Transform::get_position, etc.).
+-- Uses IL2CPP C API for metadata; Unity icalls (Camera::get_main,
+-- Transform::get_position, etc.) are invoked via Hs.il2cpp.call which
+-- resolves the address in privileged C. The raw icall pointer is never
+-- exposed to bridge code.
 
 local PTR_SIZE = process.get_pointer_size()
 
@@ -69,7 +71,9 @@ local function resolve_api()
 
     api.object_get_class        = r("il2cpp_object_get_class")
 
-    api.resolve_icall           = r("il2cpp_resolve_icall")
+    -- il2cpp_resolve_icall no longer on the allowlist; the raw resolver
+    -- address is held by Hs.il2cpp.call in privileged C. Bridge invokes
+    -- Unity icalls by name via Hs.il2cpp.call(name, ret, arg_types, args).
 
     log("IL2CPP: resolve_api done — " .. resolve_count .. " resolved, " .. fail_count .. " failed")
 
@@ -196,95 +200,67 @@ local function get_field_offset(klass, name)
     return ncall1p(api.field_get_offset, "int32", field)
 end
 
--- Resolve Unity icalls then whitelist via native.lookup. Icall names are in
--- the compile-time allowlist as read-only getters.
-local icalls = {}
-local GAME_DLL = "GameAssembly.dll"
-
-local function resolve_icall(name)
-    log("IL2CPP:   resolve_icall: " .. name)
-
-    local ok_call, addr, call_err = pcall(function()
-        return native.call(api.resolve_icall, "pointer", {"cstring"}, {name})
-    end)
-    if not ok_call then
-        log("IL2CPP:     resolve_icall CRASHED: " .. tostring(addr))
-        return nil
-    end
-    if call_err then
-        log("IL2CPP:     resolve_icall error: " .. tostring(call_err))
-        return nil
-    end
-    if not addr or addr == 0 then
-        log("IL2CPP:     not found")
-        return nil
-    end
-    log("IL2CPP:     addr = 0x" .. string.format("%X", addr))
-
-    -- Validate name against allowlist, whitelist the pre-resolved address.
-    local ok_wl, wl_addr, wl_err = pcall(native.lookup, GAME_DLL, name, addr)
-    if not ok_wl then
-        log("IL2CPP:     whitelist CRASHED: " .. tostring(wl_addr))
-        return nil
-    end
-    if wl_err then
-        log("IL2CPP:     whitelist FAILED: " .. tostring(wl_err))
-        return nil
-    end
-    log("IL2CPP:     whitelisted OK")
-
-    return addr
-end
-
--- Icall name format varies across Unity versions.
-local function resolve_icall_variants(variants)
-    for _, name in ipairs(variants) do
-        local addr = resolve_icall(name)
-        if addr then return addr end
-    end
-    return nil
-end
-
-local function resolve_all_icalls()
-    icalls.camera_get_main = resolve_icall_variants({
+-- Unity icalls are invoked through Hs.il2cpp.call (privileged C-side
+-- resolution + dispatch). The bridge no longer holds raw icall addresses;
+-- the helper's internal cache absorbs repeat invocations. Variants
+-- (Camera::get_main() vs Camera::get_main; INTERNAL_get_position vs
+-- get_position_Injected) are tried in order on each first call.
+local IL2CPP_ICALL_VARIANTS = {
+    camera_get_main = {
         "UnityEngine.Camera::get_main()",
         "UnityEngine.Camera::get_main",
-    })
-
-    icalls.get_transform = resolve_icall_variants({
+    },
+    get_transform = {
         "UnityEngine.Component::get_transform()",
         "UnityEngine.Component::get_transform",
-    })
-
-    -- _Injected variants take an out-pointer; struct written into caller memory.
-    icalls.get_position = resolve_icall_variants({
+    },
+    get_position = {
         "UnityEngine.Transform::get_position_Injected(UnityEngine.Vector3&)",
         "UnityEngine.Transform::get_position_Injected",
         "UnityEngine.Transform::INTERNAL_get_position(UnityEngine.Vector3&)",
-    })
-
-    icalls.get_rotation = resolve_icall_variants({
+    },
+    get_rotation = {
         "UnityEngine.Transform::get_rotation_Injected(UnityEngine.Quaternion&)",
         "UnityEngine.Transform::get_rotation_Injected",
         "UnityEngine.Transform::INTERNAL_get_rotation(UnityEngine.Quaternion&)",
-    })
-
-    icalls.camera_get_enabled = resolve_icall_variants({
+    },
+    get_enabled = {
         "UnityEngine.Behaviour::get_enabled()",
         "UnityEngine.Behaviour::get_enabled",
-    })
+    },
+    get_active_scene = {
+        "UnityEngine.SceneManagement.SceneManager::GetActiveScene_Injected(UnityEngine.SceneManagement.Scene&)",
+        "UnityEngine.SceneManagement.SceneManager::GetActiveScene()",
+    },
+    get_scene_name = {
+        "UnityEngine.SceneManagement.Scene::GetNameInternal(System.Int32)",
+        "UnityEngine.SceneManagement.Scene::GetNameInternal",
+    },
+}
 
-    if not icalls.camera_get_main then
-        return false, "Camera::get_main icall not found"
-    end
-    if not icalls.get_transform then
-        return false, "Component::get_transform icall not found"
-    end
-    if not icalls.get_position then
-        return false, "Transform::get_position_Injected icall not found"
-    end
+-- Per-key cache of which variant Hs.il2cpp.call accepted, so subsequent
+-- invocations skip the variant fallback walk.
+local icall_chosen_variant = {}
 
-    return true
+-- Invoke a Unity icall by logical key. `ret`, `arg_types`, `args` follow
+-- native.call's shape. Returns (value, err) like native.call.
+local function hs_call_icall(key, ret, arg_types, args)
+    local chosen = icall_chosen_variant[key]
+    if chosen then
+        return Hs.il2cpp.call(chosen, ret, arg_types, args)
+    end
+    local variants = IL2CPP_ICALL_VARIANTS[key]
+    if not variants then return nil, "no IL2CPP_ICALL_VARIANTS for key " .. tostring(key) end
+    local last_err = nil
+    for _, name in ipairs(variants) do
+        local v, e = Hs.il2cpp.call(name, ret, arg_types, args)
+        if e == nil then
+            icall_chosen_variant[key] = name
+            return v, nil
+        end
+        last_err = e
+    end
+    return nil, last_err or "all variants failed"
 end
 
 -- Pre-allocated out-buffers for _Injected methods (16-byte aligned).
@@ -297,25 +273,24 @@ local function ensure_buffers()
 end
 
 local function get_main_camera()
-    local ok, cam, err = pcall(ncall0, icalls.camera_get_main, "pointer")
-    if not ok then return nil end
+    local cam, err = hs_call_icall("camera_get_main", "pointer", {}, {})
     if err or not cam or cam == 0 then return nil end
     return cam
 end
 
 local function get_transform(component)
     if not component or component == 0 then return nil end
-    local ok, t, err = pcall(ncall1p, icalls.get_transform, "pointer", component)
-    if not ok then return nil end
+    local t, err = hs_call_icall("get_transform", "pointer", {"pointer"}, {component})
     if err or not t or t == 0 then return nil end
     return t
 end
 
 local function get_position(transform)
-    if not transform or transform == 0 or not icalls.get_position then return nil end
+    if not transform or transform == 0 then return nil end
     ensure_buffers()
-    local ok, _, err = pcall(ncall2p, icalls.get_position, "void", transform, vec3_buf)
-    if not ok or err then return nil end
+    local _, err = hs_call_icall("get_position", "void", {"pointer", "pointer"},
+        {transform, vec3_buf})
+    if err then return nil end
     local x = memory.read_f32(vec3_buf)
     local y = memory.read_f32(vec3_buf + 4)
     local z = memory.read_f32(vec3_buf + 8)
@@ -324,10 +299,11 @@ local function get_position(transform)
 end
 
 local function get_rotation(transform)
-    if not transform or transform == 0 or not icalls.get_rotation then return nil end
+    if not transform or transform == 0 then return nil end
     ensure_buffers()
-    local ok, _, err = pcall(ncall2p, icalls.get_rotation, "void", transform, quat_buf)
-    if not ok or err then return nil end
+    local _, err = hs_call_icall("get_rotation", "void", {"pointer", "pointer"},
+        {transform, quat_buf})
+    if err then return nil end
     local x = memory.read_f32(quat_buf)
     local y = memory.read_f32(quat_buf + 4)
     local z = memory.read_f32(quat_buf + 8)
@@ -366,34 +342,18 @@ local function hash_scene_name(name)
     return hash
 end
 
-local scene_icalls = {}
-
-local function resolve_scene_icalls()
-    scene_icalls.get_active_scene = resolve_icall_variants({
-        "UnityEngine.SceneManagement.SceneManager::GetActiveScene_Injected(UnityEngine.SceneManagement.Scene&)",
-        "UnityEngine.SceneManagement.SceneManager::GetActiveScene()",
-    })
-    scene_icalls.get_scene_name = resolve_icall_variants({
-        "UnityEngine.SceneManagement.Scene::GetNameInternal(System.Int32)",
-        "UnityEngine.SceneManagement.Scene::GetNameInternal",
-    })
-end
-
 local scene_buf = nil
 
 local function try_read_scene_name()
-    if not scene_icalls.get_active_scene then
-        return scene_cache.name, scene_cache.index
-    end
-
     if not scene_buf then scene_buf = memory.alloc(16) end
 
     -- _Injected writes the Scene struct to scene_buf.
-    ncall1p(scene_icalls.get_active_scene, "void", scene_buf)
+    local _, e1 = hs_call_icall("get_active_scene", "void", {"pointer"}, {scene_buf})
+    if e1 then return scene_cache.name, scene_cache.index end
     local scene_handle = memory.read_s32(scene_buf)
 
-    if scene_handle and scene_handle ~= 0 and scene_icalls.get_scene_name then
-        local name_ptr = native.call(scene_icalls.get_scene_name, "pointer",
+    if scene_handle and scene_handle ~= 0 then
+        local name_ptr, _ = hs_call_icall("get_scene_name", "pointer",
             {"int32"}, {scene_handle})
         if name_ptr and name_ptr ~= 0 then
             local name = read_il2cpp_string(name_ptr)
@@ -476,22 +436,11 @@ local function handle_init()
     end
     log("IL2CPP: wait_for_il2cpp_ready OK")
 
-    log("IL2CPP: Step 3 - resolve_all_icalls()")
-    send({ type = "progress", message = "Resolving Unity methods...", percent = 40 })
-    ok, err = resolve_all_icalls()
-    if not ok then
-        log("IL2CPP: resolve_all_icalls FAILED: " .. tostring(err))
-        send({ type = "init-response", success = false, error = tostring(err) })
-        return
-    end
-    log("IL2CPP: resolve_all_icalls OK")
+    -- Icall resolution is now deferred to first call inside Hs.il2cpp.call;
+    -- the helper caches the (name)->addr mapping. A first read_frame()
+    -- below will populate the cache and surface any incompatibility.
 
-    log("IL2CPP: Step 4 - resolve_scene_icalls()")
-    send({ type = "progress", message = "Resolving scene APIs...", percent = 60 })
-    resolve_scene_icalls()
-    log("IL2CPP: resolve_scene_icalls OK")
-
-    log("IL2CPP: Step 5 - test read_frame()")
+    log("IL2CPP: Step 3 - test read_frame()")
     send({ type = "progress", message = "Testing camera access...", percent = 80 })
     local test = read_frame()
     if test then
@@ -509,10 +458,9 @@ local function handle_init()
 
     log("==============================================")
     log("  IL2CPP Tracker (Lua) Initialized")
-    log("  camera_get_main: " .. (icalls.camera_get_main and "OK" or "MISSING"))
-    log("  get_transform:   " .. (icalls.get_transform and "OK" or "MISSING"))
-    log("  get_position:    " .. (icalls.get_position and "OK" or "MISSING"))
-    log("  get_rotation:    " .. (icalls.get_rotation and "OK" or "MISSING"))
+    for key, chosen in pairs(icall_chosen_variant) do
+        log("  " .. key .. ": " .. chosen)
+    end
     log("==============================================")
 end
 
