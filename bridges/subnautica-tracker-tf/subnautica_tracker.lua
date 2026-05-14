@@ -36,22 +36,7 @@ local state = {
     warmup_ticks = 0,
     player_ptr = nil,
     player_vtable = nil,
-    -- Cached pose for the transition window — keep emitting last-good
-    -- data via heartbeats rather than going dark.
-    last_pos = nil,
-    last_fwd = nil,
-    last_up = nil,
-    -- Scene-transition latch. When > clock(), do_tick skips entirely.
-    -- Set when classify_player_state detects the Player vtable changed
-    -- (the Mono object was destroyed during scene unload). Pausing all
-    -- native.call invocations during this window prevents our agent
-    -- thread from being inside a JIT'd Mono icall while the assembly
-    -- unload deregisters the function table for that JIT region —
-    -- which is what raises STATUS_BAD_FUNCTION_TABLE in the unwinder.
-    transition_pause_until_ms = 0,
 }
-
-local TRANSITION_PAUSE_MS = 5000
 
 local mono_dll = nil
 local api = {}
@@ -61,6 +46,10 @@ local image_assembly_csharp = nil
 local image_unity = nil
 local classes = {}
 local off = {}
+
+local vec3_buf = nil
+local quat_buf = nil
+local scene_buf = nil
 
 local native_matrix_offset = nil
 
@@ -462,35 +451,37 @@ local function probe_matrix_offset(native_ptr)
     return nil
 end
 
--- Read pose from a native C++ Transform via raw memory. Pure
--- memory.read_f32 — no Unity FFI, no JIT stack frames, can't trip the
--- STATUS_BAD_FUNCTION_TABLE crash even mid-scene-transition.
-local function read_pose_from_native_tf(native_tf)
-    if not native_tf or native_tf == 0 then return nil end
-    if not native_matrix_offset then
-        native_matrix_offset = probe_matrix_offset(native_tf)
-        if not native_matrix_offset then return nil end
-    end
-    local b = native_tf + native_matrix_offset
-    local px = memory.read_f32(b + MATRIX_POS_X)
-    local py = memory.read_f32(b + MATRIX_POS_Y)
-    local pz = memory.read_f32(b + MATRIX_POS_Z)
-    if not px or px ~= px then return nil end
-    local fx = memory.read_f32(b + MATRIX_FWD_X)
-    local fy = memory.read_f32(b + MATRIX_FWD_Y)
-    local fz = memory.read_f32(b + MATRIX_FWD_Z)
-    local ux = memory.read_f32(b + MATRIX_UP_X)
-    local uy = memory.read_f32(b + MATRIX_UP_Y)
-    local uz = memory.read_f32(b + MATRIX_UP_Z)
-    return { x = px, y = py, z = pz },
-           { x = fx, y = fy, z = fz },
-           { x = ux, y = uy, z = uz }
+local function read_native_pos(native_ptr)
+    if not native_matrix_offset then return nil end
+    local b = native_ptr + native_matrix_offset
+    local x = memory.read_f32(b + MATRIX_POS_X)
+    local y = memory.read_f32(b + MATRIX_POS_Y)
+    local z = memory.read_f32(b + MATRIX_POS_Z)
+    if not x or x ~= x then return nil end
+    return { x = x, y = y, z = z }
 end
 
--- Slow-path fallback. Only used when raw memory reads off Player.camRoot
--- failed AND we are NOT in a transition pause window. Calling these icalls
--- is what triggers the scene-transition crash, so the gate matters.
-local function read_camera_via_icalls()
+local function read_native_forward(native_ptr)
+    if not native_matrix_offset then return nil end
+    local b = native_ptr + native_matrix_offset
+    local x = memory.read_f32(b + MATRIX_FWD_X)
+    local y = memory.read_f32(b + MATRIX_FWD_Y)
+    local z = memory.read_f32(b + MATRIX_FWD_Z)
+    if not x or x ~= x then return nil end
+    return { x = x, y = y, z = z }
+end
+
+local function read_native_up(native_ptr)
+    if not native_matrix_offset then return nil end
+    local b = native_ptr + native_matrix_offset
+    local x = memory.read_f32(b + MATRIX_UP_X)
+    local y = memory.read_f32(b + MATRIX_UP_Y)
+    local z = memory.read_f32(b + MATRIX_UP_Z)
+    if not x or x ~= x then return nil end
+    return { x = x, y = y, z = z }
+end
+
+local function read_camera()
     if not icalls.camera_get_main then return nil end
     local ok, cam = pcall(native.call, icalls.camera_get_main, "pointer", {}, {})
     if not ok or not cam or cam == 0 then return nil end
@@ -499,33 +490,61 @@ local function read_camera_via_icalls()
         {"pointer"}, {cam})
     if not tok or not tf or tf == 0 then return nil end
 
-    local native_tf = memory.read_pointer(tf + CACHED_PTR_OFFSET)
-    return read_pose_from_native_tf(native_tf)
-end
+    local pos, fwd, up
+    if icalls.get_position then
+        if not vec3_buf then vec3_buf = memory.alloc(16) end
+        local pok = pcall(native.call, icalls.get_position, "void",
+            {"pointer", "pointer"}, {tf, vec3_buf})
+        if pok then
+            local x = memory.read_f32(vec3_buf)
+            local y = memory.read_f32(vec3_buf + 4)
+            local z = memory.read_f32(vec3_buf + 8)
+            if x and y and z and x == x then pos = { x = x, y = y, z = z } end
+        end
+    end
+    if not pos then
+        local native_tf = memory.read_pointer(tf + CACHED_PTR_OFFSET)
+        if native_tf and native_tf ~= 0 then
+            if not native_matrix_offset then
+                native_matrix_offset = probe_matrix_offset(native_tf)
+            end
+            pos = read_native_pos(native_tf)
+        end
+    end
+    if not pos then return nil end
 
--- Primary path: walk Player.camRoot (a Transform field on the Player
--- singleton, already discovered during init) to its native C++ Transform
--- and read the localToWorldMatrix directly. Zero icalls — never enters
--- JIT'd Mono code, so the unwinder can never trip on a deregistered
--- function table. The `safe_pointer` calls are VirtualQuery-protected
--- so a stale Player won't crash either; they just return nil.
-local function read_camera()
-    if state.player_ptr and off.camRoot then
-        local cam_tf = safe_pointer(state.player_ptr + off.camRoot)
-        if cam_tf and cam_tf ~= 0 then
-            local native_tf = safe_pointer(cam_tf + CACHED_PTR_OFFSET)
-            local pos, fwd, up = read_pose_from_native_tf(native_tf)
-            if pos then return pos, fwd, up end
+    if icalls.get_rotation then
+        if not quat_buf then quat_buf = memory.alloc(16) end
+        local rok = pcall(native.call, icalls.get_rotation, "void",
+            {"pointer", "pointer"}, {tf, quat_buf})
+        if rok then
+            local qx = memory.read_f32(quat_buf)
+            local qy = memory.read_f32(quat_buf + 4)
+            local qz = memory.read_f32(quat_buf + 8)
+            local qw = memory.read_f32(quat_buf + 12)
+            if qx and qy and qz and qw then
+                fwd = {
+                    x = 2 * (qx * qz + qw * qy),
+                    y = 2 * (qy * qz - qw * qx),
+                    z = 1 - 2 * (qx * qx + qy * qy),
+                }
+                up = {
+                    x = 2 * (qx * qy - qw * qz),
+                    y = 1 - 2 * (qx * qx + qz * qz),
+                    z = 2 * (qy * qz + qw * qx),
+                }
+            end
+        end
+    end
+    if not fwd or not up then
+        local native_tf = memory.read_pointer(tf + CACHED_PTR_OFFSET)
+        if native_tf and native_tf ~= 0 and native_matrix_offset then
+            fwd = fwd or read_native_forward(native_tf)
+            up = up or read_native_up(native_tf)
         end
     end
 
-    -- Raw read failed (camRoot null, native_tf null, matrix probe failed).
-    -- Only attempt the icall fallback when not in a transition pause —
-    -- inside the pause window, falling back here defeats the whole point.
-    if (clock() * 1000) < state.transition_pause_until_ms then
-        return nil
-    end
-    return read_camera_via_icalls()
+    return pos, fwd, up
 end
 
 -- Subnautica's scene name isn't used for level-change audio routing, so
@@ -688,57 +707,10 @@ local function do_init(init_data)
 end
 
 local function read_frame()
-    -- Order matters: classify_player_state is pure memory.read_*, so it
-    -- can never crash. If it detects vtable_invalidated (the Player Mono
-    -- object was destroyed — a strong scene-transition signal), latch
-    -- the transition pause BEFORE we'd ever fall back into the icall
-    -- path inside read_camera. Saves us at least one tick of risk.
-    local pstate = classify_player_state()
-    if pstate.vtable_invalidated then
-        state.transition_pause_until_ms = (clock() * 1000) + TRANSITION_PAUSE_MS
-        return nil
-    end
-
     local pos, fwd, up = read_camera()
-    if not pos then
-        -- Reuse last-good pose during the brief windows when read_camera
-        -- can't get fresh data (camRoot null mid-frame, etc.). Keeps the
-        -- audio steady instead of cutting out completely.
-        if state.last_pos then
-            return {
-                type = "data",
-                protocol = "subnautica_tracker",
-                posX = state.last_pos.x, posY = state.last_pos.y, posZ = state.last_pos.z,
-                fwdX = state.last_fwd and state.last_fwd.x or 0,
-                fwdY = state.last_fwd and state.last_fwd.y or 0,
-                fwdZ = state.last_fwd and state.last_fwd.z or 0,
-                upX = state.last_up and state.last_up.x or 0,
-                upY = state.last_up and state.last_up.y or 1,
-                upZ = state.last_up and state.last_up.z or 0,
-                sceneName = "", sceneIndex = -1,
-                timestamp = clock() * 1000,
-                stale = true,
-                roomSize       = pstate.room_size,
-                reverb         = pstate.reverb,
-                inSeamoth      = pstate.in_seamoth,
-                inExosuit      = pstate.in_exosuit,
-                inAnyVehicle   = pstate.in_any_vehicle,
-                inBase         = pstate.in_base,
-                inCyclops      = pstate.in_cyclops,
-                inAnySub       = pstate.in_any_sub,
-                inAir          = pstate.in_air,
-                radioAccess    = pstate.radio_access,
-                motorMode      = pstate.motor_mode,
-                precursorOOW   = pstate.precursor_out_of_water,
-                isUnderwaterGame = pstate.is_underwater_game,
-            }
-        end
-        return nil
-    end
+    if not pos then return nil end
 
-    state.last_pos = pos
-    state.last_fwd = fwd
-    state.last_up = up
+    local pstate = classify_player_state()
 
     return {
         type = "data",
@@ -775,16 +747,6 @@ end
 local function do_tick()
     if not state.initialized then
         send({ type = "heartbeat", status = "not-initialized" })
-        return
-    end
-
-    -- Scene-transition latch. While active, do nothing — no native.call,
-    -- no memory walks. The latch is set from read_frame when the Player
-    -- vtable invalidates. After expiry, we resume: the next tick's
-    -- read_frame will check again, extend the pause if still bad, or
-    -- proceed normally if the new scene's Player has resolved.
-    if (clock() * 1000) < state.transition_pause_until_ms then
-        send({ type = "heartbeat", status = "transition-pause" })
         return
     end
 
