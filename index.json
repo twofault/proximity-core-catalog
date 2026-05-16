@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-13T03:38:10.454991Z",
+  "generated_at": "2026-05-16T03:37:28.979847Z",
   "min_app_version": "0.2.0",
   "bridges": [
     {
@@ -329,6 +329,59 @@
               ],
               "forbid": [
                 "GameAssembly.dll"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "subnautica2-tracker-tf",
+      "name": "Subnautica 2 Tracker",
+      "description": "Tracks Subnautica 2 camera + game state. Drives the underwater, radio_access, room_size, and reverb surroundings based on pawn class (on-foot vs vehicle) and CharacterMovement.MovementMode read by UE reflection. Built on the same UE introspection used by the generic Unreal tracker.",
+      "author": "twofault",
+      "tags": [
+        "subnautica",
+        "subnautica2",
+        "unreal-engine",
+        "ue5",
+        "underwater",
+        "radio",
+        "experimental"
+      ],
+      "icon_url": null,
+      "readme_url": "https://raw.githubusercontent.com/twofault/proximity-core-catalog/main/bridges/subnautica2-tracker-tf/README.md",
+      "repository_url": "https://github.com/twofault/proximity-core-catalog/tree/main/bridges/subnautica2-tracker-tf",
+      "latest_version": "0.1.0",
+      "versions": [
+        {
+          "version": "0.1.0",
+          "released_at": "2026-05-16T03:37:16Z",
+          "download_url": "https://github.com/twofault/proximity-core-catalog/releases/download/subnautica2-tracker-tf/v0.1.0/subnautica2-tracker-tf-0.1.0.zip",
+          "sha256": "848c9069f4c90f61337cb2a3c4e159318d6cb4771174c38dadc248b0645adb82",
+          "size_bytes": 49316,
+          "changelog": "- Initial release.",
+          "min_app_version": "0.2.0",
+          "yanked": false,
+          "yank_reason": "",
+          "game_engines": [
+            "unreal"
+          ],
+          "compatibility": {
+            "platforms": [
+              "windows"
+            ],
+            "executable": {
+              "any_of": [
+                {
+                  "exact": "Subnautica2-WinGDK-Shipping.exe"
+                },
+                {
+                  "exact": "Subnautica2-Win64-Shipping.exe"
+                },
+                {
+                  "starts_with": "Subnautica2-"
+                }
               ]
             }
           }
