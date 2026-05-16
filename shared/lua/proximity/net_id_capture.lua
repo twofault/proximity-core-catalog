@@ -6,14 +6,15 @@
 -- do not exist in the source tree.
 
 -- Generic networking-session-ID detector loaded alongside the main
--- tracker. Probes loaded SDKs (Steam currently; EOS/Photon planned)
--- and emits source-prefixed IDs (steam_lobby:..., steam_server:...)
--- only for CONFIRMED active sessions — rejecting unvalidated
--- candidates avoids leaking master-server IDs shared across thousands
--- of unrelated players.
+-- tracker. Probes loaded SDKs (Steam, Epic Online Services) and emits
+-- source-prefixed IDs (`steam_lobby:`, `steam_server:`, `eos_p2p:`)
+-- only for CONFIRMED active sessions — rejecting unvalidated candidates
+-- avoids leaking master-server IDs shared across thousands of unrelated
+-- players.
 --
 -- Cadence: scan once on first tick, revalidate cached ID every ~3s,
--- full re-scan every ~30s.
+-- full re-scan every ~30s. EOS detection is observer-based and updates
+-- on each tick as P2P traffic flows.
 
 local PTR_SIZE = process.get_pointer_size()
 
@@ -263,8 +264,187 @@ local function check_steam_game_server()
     return true
 end
 
--- Probe loop. Precedence: Steam lobby > Steam game-server > EOS > Photon.
--- EOS and Photon not yet implemented.
+-- Epic Online Services (EOS) helpers
+--
+-- EOS games can use multiple identifier abstractions: Sessions, Lobbies,
+-- or raw P2P. Sessions/Lobby APIs expose stable IDs via `*_CopyInfo` but
+-- many games (Subnautica 2 among them) cache the handles at startup and
+-- never call those again after the initial setup, so observing them
+-- post-attach produces nothing.
+--
+-- What every EOS multiplayer game DOES call continuously is
+-- `EOS_P2P_ReceivePacket` / `EOS_P2P_SendPacket`, and every successful
+-- call carries an `EOS_P2P_SocketId` whose `SocketName` field is by
+-- convention derived from the lobby/session id all peers share. That's
+-- a "good-enough" stable identifier: it's the same value for every peer
+-- in the multiplayer session, and unrelated sessions get unrelated
+-- names. Trade-off: we can only see it once at least one peer is
+-- connected and traffic is flowing — silent (no peers yet) means we
+-- emit nothing rather than guess.
+--
+-- EOS_P2P_SocketId layout (ApiVersion=1):
+--   int32_t  ApiVersion;          -- +0x00
+--   char     SocketName[33];      -- +0x04 (NUL-terminated, max 32 chars)
+--
+-- Note: EOS_P2P_ReceivePacket returns EOS_NotFound (0x12) when no packet
+-- is queued, in which case OutSocketId contains stack garbage. We must
+-- filter on retval == 0 (EOS_Success) before reading the struct.
+
+local EOS_DLL = "EOSSDK-Win64-Shipping.dll"
+local eos_dll = process.find_module(EOS_DLL) and EOS_DLL or nil
+
+local eos = {
+    receive_obs = nil,
+    send_obs    = nil,
+    -- All distinct socket names seen since attach, with packet counts.
+    -- We pick the busiest as the canonical session id (game-state traffic
+    -- dominates voice / chat / chunk channels). Lexicographic tie-break
+    -- so two peers picking under the same load see the same winner.
+    socket_counts = {},
+    socket_first_seen_at = {},
+    emitted_socket = nil,
+    -- Hard ceiling on distinct names — prevents memory growth if some
+    -- pathological game derives a unique socket per packet.
+    distinct_cap = 32,
+}
+
+if eos_dll then
+    log("net_id_capture: EOS dll found = " .. eos_dll)
+
+    -- Hook ReceivePacket (always called by both host and joiner) and
+    -- SendPacket (host echoes peer state — also fires constantly).
+    -- count=10000 is the Frida-Lua observer ceiling; at ~30 calls/s that
+    -- is ~5 minutes of runtime, after which the observer auto-detaches.
+    -- The probe loop re-arms it below if it's still empty after the
+    -- ceiling lapses.
+
+    local function arm_observer(name, opts)
+        local ok, addr = pcall(process.find_export, eos_dll, name)
+        if not ok or not addr or addr == 0 then return nil end
+        local ok2, obs, err = pcall(native.observe, addr, opts)
+        if not ok2 or not obs then
+            log("net_id_capture: EOS observe " .. name .. " failed: "
+                .. tostring(obs or err))
+            return nil
+        end
+        return obs
+    end
+
+    eos.arm_receive = function()
+        return arm_observer("EOS_P2P_ReceivePacket", { count = 10000, max_args = 6 })
+    end
+    eos.arm_send = function()
+        return arm_observer("EOS_P2P_SendPacket", { count = 10000, max_args = 2 })
+    end
+
+    eos.receive_obs = eos.arm_receive()
+    eos.send_obs    = eos.arm_send()
+end
+
+local function eos_read_socket_name(socket_id_ptr)
+    if not socket_id_ptr or socket_id_ptr == 0 then return nil end
+    local ok, s = pcall(memory.read_utf8, socket_id_ptr + 4, 33)
+    if not ok or not s then return nil end
+    local nul = s:find("\0", 1, true)
+    if nul then s = s:sub(1, nul - 1) end
+    if #s == 0 then return nil end
+    -- Reject high-bit-set noise that can come from stack garbage when the
+    -- caller mis-passes the struct.
+    for i = 1, #s do
+        local b = string.byte(s, i)
+        if b < 0x20 or b > 0x7E then return nil end
+    end
+    return s
+end
+
+-- Record a captured socket name. Returns true on first sight of a new
+-- name, false if it was already tracked.
+local function eos_record_socket(name)
+    if not name then return false end
+    if eos.socket_counts[name] then
+        eos.socket_counts[name] = eos.socket_counts[name] + 1
+        return false
+    end
+    local distinct = 0
+    for _ in pairs(eos.socket_counts) do distinct = distinct + 1 end
+    if distinct >= eos.distinct_cap then return false end
+    eos.socket_counts[name] = 1
+    eos.socket_first_seen_at[name] = clock()
+    log(string.format(
+        "net_id_capture: new EOS P2P socket name observed: \"%s\" (distinct=%d)",
+        name, distinct + 1))
+    return true
+end
+
+-- Pick the canonical session id from all observed socket names:
+--   - Highest packet count wins (game-state traffic dominates).
+--   - Lexicographic tie-break so two peers under equal load agree.
+local function eos_canonical_socket()
+    local best_name, best_count
+    for name, count in pairs(eos.socket_counts) do
+        if not best_name
+            or count > best_count
+            or (count == best_count and name < best_name) then
+            best_name, best_count = name, count
+        end
+    end
+    return best_name, best_count or 0
+end
+
+local function check_eos_p2p()
+    if not eos_dll then return false end
+
+    -- Re-arm observers if they've auto-detached (count reached).
+    if eos.receive_obs and not eos.receive_obs:is_active() then
+        eos.receive_obs = eos.arm_receive()
+    end
+    if eos.send_obs and not eos.send_obs:is_active() then
+        eos.send_obs = eos.arm_send()
+    end
+
+    -- Drain ReceivePacket: args[3] is OutSocketId* (caller-owned struct
+    -- the SDK fills on success — retval==0). Tally every successful
+    -- capture; don't emit yet.
+    if eos.receive_obs then
+        for _, cap in ipairs(eos.receive_obs:results()) do
+            if cap.retval == 0 then
+                eos_record_socket(eos_read_socket_name(cap.args[3]))
+            end
+        end
+    end
+
+    -- Drain SendPacket: args[1] is SendPacketOptions, SocketId* at +0x18.
+    --   +0x00 ApiVersion (int32 + 4 pad)
+    --   +0x08 LocalUserId (ptr)
+    --   +0x10 RemoteUserId (ptr)
+    --   +0x18 SocketId (ptr)
+    if eos.send_obs then
+        for _, cap in ipairs(eos.send_obs:results()) do
+            if cap.retval == 0 and cap.args[1] and cap.args[1] ~= 0 then
+                local ok, sock_ptr = pcall(memory.read_u64, cap.args[1] + 0x18)
+                if ok and sock_ptr and sock_ptr ~= 0 then
+                    eos_record_socket(eos_read_socket_name(sock_ptr))
+                end
+            end
+        end
+    end
+
+    -- Emit the canonical winner if it has any traffic and is either new
+    -- or a fresh winner over the previously-emitted one.
+    local canonical, count = eos_canonical_socket()
+    if canonical and count > 0 and canonical ~= eos.emitted_socket then
+        eos.emitted_socket = canonical
+        emit_session("eos_p2p:" .. canonical, "eos_p2p", {
+            socketName = canonical,
+            packetCount = count,
+        })
+        return true
+    end
+
+    return canonical ~= nil
+end
+
+-- Probe loop. Precedence: Steam lobby > Steam game-server > EOS P2P.
 
 local last_validate_ms = 0
 local last_rescan_ms = 0
@@ -294,6 +474,19 @@ local function probe()
         end
     end
 
+    -- EOS observer poll runs every tick — observers are cheap to drain
+    -- and the SocketName can appear at any time when a peer connects.
+    -- Has precedence below Steam but above falling back to "no session".
+    if eos_dll then
+        -- If Steam already has us, don't override it.
+        if not validate_ok then check_eos_p2p() end
+        -- Cheap revalidate: if we already emitted an EOS socket ID, just
+        -- keep listening for changes — there's no validation API.
+        if last_emitted_id and last_emitted_id:sub(1, 8) == "eos_p2p:" then
+            validate_ok = true
+        end
+    end
+
     -- Full memory scan only when we don't already have a working ID —
     -- avoids blocking the worker 1-3s every 30s.
     if validate_ok then
@@ -306,6 +499,9 @@ local function probe()
             if check_steam_lobby() then return end
             if check_steam_game_server() then return end
         end
+        if eos_dll then
+            if check_eos_p2p() then return end
+        end
         if last_emitted_id then emit_clear("rescan_no_match") end
     end
 end
@@ -315,11 +511,12 @@ end
 send({
     type = "log",
     payload = string.format(
-        "net_id_capture: init (steam=%s, user_accessor=%s, mm_accessor=%s, gs_accessor=%s)",
+        "net_id_capture: init (steam=%s mm=%s gs=%s) (eos=%s p2p_obs=%s)",
         tostring(steam_dll),
-        steam.user_accessor and "yes" or "no",
         steam.mm_accessor and "yes" or "no",
-        steam.gs_accessor and "yes" or "no")
+        steam.gs_accessor and "yes" or "no",
+        tostring(eos_dll),
+        (eos.receive_obs and "y" or "n") .. "/" .. (eos.send_obs and "y" or "n"))
 })
 
 -- DO NOT run probe() at top level: script.load() blocks until top-level
