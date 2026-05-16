@@ -1,0 +1,41 @@
+{
+  "id": "subnautica2-tracker-tf",
+  "name": "Subnautica 2 Tracker",
+  "description": "Tracks Subnautica 2 camera + game state. Drives the underwater, radio_access, room_size, and reverb surroundings based on pawn class (on-foot vs vehicle) and CharacterMovement.MovementMode read by UE reflection. Built on the same UE introspection used by the generic Unreal tracker.",
+  "version": "0.1.0",
+  "author": "twofault",
+  "entry": "main.lua",
+  "gamelink_script": "sn2_tracker.lua",
+  "game_engines": [
+    "unreal"
+  ],
+  "compatibility": {
+    "platforms": [
+      "windows"
+    ],
+    "executable": {
+      "any_of": [
+        { "exact": "Subnautica2-WinGDK-Shipping.exe" },
+        { "exact": "Subnautica2-Win64-Shipping.exe" },
+        { "starts_with": "Subnautica2-" }
+      ]
+    }
+  },
+  "capabilities": {
+    "uses_blockable_apis": true,
+    "uses_game_session": true
+  },
+  "http_endpoints": [],
+  "warn_on_unlisted_targets": false,
+  "bridge_scope": "game_specific",
+  "game_session_support": "none",
+  "tags": [
+    "subnautica",
+    "subnautica2",
+    "unreal-engine",
+    "ue5",
+    "underwater",
+    "radio",
+    "experimental"
+  ]
+}
