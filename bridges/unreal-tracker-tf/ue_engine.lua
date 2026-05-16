@@ -1784,8 +1784,10 @@ function ObjectFinder.findGWorld(self, mod, chainOffsets)
         hadFullChain and "ON" or "OFF (temporal-only)"))
     for i = 1, #scored do
         local s = scored[i]
+        -- `score` is a float (lowerOffsetBias adds a fractional tiebreak),
+        -- so %d would reject it under Lua 5.3+ — use %g.
         log(string.format(
-            "  cand[%d] offset=0x%X depth=%d/%d nonNull=%d/%d sameVal=%d/%d everNull=%d consensus=%d/%d score=%d %s",
+            "  cand[%d] offset=0x%X depth=%d/%d nonNull=%d/%d sameVal=%d/%d everNull=%d consensus=%d/%d score=%g %s",
             i, s.offset, s.depthSum, SAMPLES * 7, s.nonNull, SAMPLES,
             s.sameValue, SAMPLES, s.everNull, s.consensus, SAMPLES, s.score,
             i == 1 and "<- PICKED" or ""))
